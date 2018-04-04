@@ -16,24 +16,23 @@ import Data.Newtype (class Newtype)
 
 -- The State transformer over FormConfig, allows us to use a monadic DSL based
 -- on State to successively transform a configuration record.
---
--- v: Validations supported in this particular form
-type FormM v = State (FormConfig v)
+type FormM v i r = State (FormConfig v i r)
 
 -- | Runs a form builder, retrieving the built value
-runFormBuilder :: ∀ v a. FormM v a -> a
+runFormBuilder :: ∀ v i r a. FormM v i r a -> a
 runFormBuilder = (flip evalState) { supply: 0, inputs: Map.empty }
 
 -- A configuration supplying an incrementing supply of identifiers and a graph
 -- of fields.
-type FormConfig v =
+type FormConfig v i r =
   { supply :: Int
-  , inputs :: Map InputRef (InputConfig v)
+  , inputs :: Map InputRef (InputConfig v i r)
   }
 
 -- | Our eventual built form
-type Form v =
-  { fields :: Map InputRef (InputConfig v) }
+-- b: phantom type representing what it ought to parse to
+type Form v i r b =
+  { fields :: Map InputRef (InputConfig v i r) }
 
 -- | A unique identifier for fields in a form
 newtype InputRef = InputRef Int
@@ -44,62 +43,38 @@ derive instance genericInputRef :: Generic InputRef _
 instance showInputRef :: Show InputRef where
   show = genericShow
 
--- v represents the possible validations you'd like to
--- run in this form (as constructors)
-type InputConfig v =
-  { "type"      :: FormInput
-  , name        :: String
-  , edges       :: Array Edge
+-- v: the possible validations you'd like to
+--    run in this form (as constructors)
+-- i: the possible input types for the form
+-- r: the possible set of relations for the form
+type InputConfig v i r =
+  { inputType   :: i
+  , relations   :: Array r
   , validations :: Array v
-  --  , tasks :: Array Task
+  --  , triggers    :: Array t
   }
 
--- | Define possible input types
-data FormInput
-  = Text
-derive instance genericFormInput :: Generic FormInput _
-instance showFormInput :: Show FormInput where
-  show = genericShow
-
--- | Define relationships among fields
-data Edge
-  = MustEqual InputRef
-  | Clear InputRef
-derive instance genericEdge :: Generic Edge _
-instance showEdge :: Show Edge where
-  show = genericShow
-
--- | Insert a new input into the form
-input :: ∀ v. FormInput -> String -> FormM v InputRef
-input inputType name  = do
+-- | Insert a new input into the form. Returns the created ref.
+input :: ∀ v i r. i -> FormM v i r InputRef
+input inputType = do
   st <- get
   let ref = InputRef st.supply
   modify _
     { supply = st.supply + 1
-    , inputs = Map.insert ref { "type": inputType, name, edges: [], validations: [] } st.inputs }
+    , inputs = Map.insert ref { inputType, relations: [], validations: [] } st.inputs }
   pure ref
 
-validate :: ∀ v. v -> InputRef -> FormM v InputRef
+-- | Augment an input with new validation. Returns the original ref.
+validate :: ∀ v i r. v -> InputRef -> FormM v i r InputRef
 validate validation ref = do
   st <- get
   let f = \v -> Just $ v { validations = validation : v.validations }
   modify _ { inputs = Map.update f ref st.inputs }
   pure ref
 
--- | Assert that two fields must equal one another. Returns the original
--- ref for successive binding.
-mustEqual :: ∀ v. InputRef -> InputRef -> FormM v InputRef
-mustEqual b a = do
-  st <- get
-  let fa = \v -> Just $ v { edges = MustEqual b : v.edges }
-      fb = \v -> Just $ v { edges = MustEqual a : v.edges }
-  modify _ { inputs = Map.update fb b $ Map.update fa a st.inputs }
-  pure a
-
--- | Assert that another field should be cleared on change
-clear :: ∀ v. InputRef -> InputRef -> FormM v InputRef
-clear b a = do
-  st <- get
-  let f = \v -> Just $ v { edges = Clear b : v.edges }
-  modify _ { inputs = Map.update f a st.inputs }
-  pure a
+-- | Augment an input with a new relationship
+relate :: ∀ v i r. r -> InputRef -> FormM v i r InputRef
+relate relation ref = do
+  let f = \v -> Just $ v { relations = relation : v.relations }
+  modify \st -> st { inputs = Map.update f ref st.inputs }
+  pure ref

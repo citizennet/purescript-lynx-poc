@@ -3,13 +3,12 @@ module Main where
 import Prelude
 
 import App.Form as Form
-import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Eff (Eff)
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
-import Lynx.Component (component)
+import Lynx.Component as Component
 
-main :: Eff (HA.HalogenEffects (console :: CONSOLE)) Unit
+main :: ∀ eff. Eff (HA.HalogenEffects (Component.Effects eff)) Unit
 main = HA.runHalogenAff do
   body <- HA.awaitBody
-  runUI (component Form.userSignup Form.userValidation) unit body
+  runUI (Component.component Form.userSignup Form.userValidation Form.renderUserInput Form.userRelation) unit body

@@ -2,41 +2,45 @@ module Lynx.Component where
 
 import Prelude
 
+import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as Console
 import Data.Array ((:))
+import Data.Array (fromFoldable) as Array
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Newtype (unwrap)
+import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse_)
-import Data.Tuple (Tuple(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties as HP
-import Lynx.Graph (Edge(..), Form, InputConfig, InputRef)
+import Lynx.Graph (Form, InputRef)
 
 data Query a
   = UpdateValue InputRef String a
   | Blur InputRef a
   | Submit a
 
-type Message = Void
+data Message
 
-type State v =
-  { config :: Form v
+type State v i r b =
+  { config :: Form v i r b
   , form :: Map.Map InputRef String
   }
 
-component :: ∀ eff v m
-   . MonadAff (console :: CONSOLE | eff) m
-  => Form v
+type Effects eff =
+  ( console :: CONSOLE
+  | eff )
+
+component :: ∀ eff v i r b
+   . Form v i r b
   -> (v -> String -> Either String String)
-  -> H.Component HH.HTML Query Unit Message m
-component form validator =
+  -> (State v i r b -> InputRef -> H.ComponentHTML Query)
+  -> (r -> InputRef -> H.ComponentDSL (State v i r b) Query Message (Aff (Effects eff)) Unit)
+  -> H.Component HH.HTML Query Unit Message (Aff (Effects eff))
+component form handleValidation handleInput handleRelations =
   H.component
     { initialState: const { config: form, form: (const "") <$> form.fields }
     , render
@@ -44,47 +48,33 @@ component form validator =
     , receiver: const Nothing
     }
   where
-    eval :: Query ~> H.ComponentDSL (State v) Query Message m
+    eval :: Query ~> H.ComponentDSL (State v i r b) Query Message (Aff (Effects eff))
     eval = case _ of
       UpdateValue ref str a -> a <$ do
         H.modify \st -> st { form = Map.insert ref str st.form }
 
       Blur ref a -> a <$ do
-        runEdges ref
-        runValidations ref validator
+        runRelations ref handleRelations
+        runValidations ref handleValidation
 
       Submit a -> a <$ do
         refs <- H.gets (Map.keys <<< _.form)
-        traverse_ runEdges refs
+        traverse_ (flip runRelations $ handleRelations) refs
 
-    render :: State v -> H.ComponentHTML Query
+    render :: State v i r b -> H.ComponentHTML Query
     render st = HH.div_
-      [ HH.div_ $ renderInput st <$> Map.toAscUnfoldable st.config.fields
+      [ HH.div_ $ Array.fromFoldable $ (handleInput st) <$> Map.keys st.config.fields
       , HH.button
           [ HE.onClick (HE.input_ Submit) ]
           [ HH.text "Submit" ]
       ]
 
-    renderInput :: State v -> Tuple InputRef (InputConfig v) -> H.ComponentHTML Query
-    renderInput st (Tuple ref { name, "type": t }) =
-      let attr = HP.attr (HH.AttrName "data-inputref") (show $ unwrap ref)
-       in case t of
-        _ ->
-          HH.div_
-            [ HH.text name
-            , HH.input
-                [ attr
-                , HE.onValueInput $ HE.input $ UpdateValue ref
-                , HE.onBlur $ HE.input_ $ Blur ref
-                , HP.value $ fromMaybe "field not found in form! nooo" $ Map.lookup ref st.form
-                ]
-            ]
-
-runValidations :: ∀ eff v m
-  . MonadAff (console :: CONSOLE | eff) m
+-- Attempt to use the provided validation helper to run on the form validations
+runValidations :: ∀ eff v i r b m
+  . MonadAff (Effects eff) m
  => InputRef
  -> (v -> String -> Either String String)
- -> H.ComponentDSL (State v) Query Message m Unit
+ -> H.ComponentDSL (State v i r b) Query Message m Unit
 runValidations ref validate = do
   st <- H.get
   case Map.lookup ref st.form of
@@ -100,39 +90,16 @@ runValidations ref validate = do
         _ <- H.liftAff $ Console.logShow res
         pure unit
 
-runEdges :: ∀ eff v m
-  . MonadAff (console :: CONSOLE | eff) m
+-- Attempt to use the provided relations helper to run on form relations
+runRelations :: ∀ eff v i r b m
+  . MonadAff (Effects eff) m
  => InputRef
- -> H.ComponentDSL (State v) Query Message m Unit
-runEdges ref = do
+ -> (r -> InputRef -> H.ComponentDSL (State v i r b) Query Message m Unit)
+ -> H.ComponentDSL (State v i r b) Query Message m Unit
+runRelations ref runRelation = do
   st <- H.get
   case Map.lookup ref st.config.fields of
     Nothing -> pure unit
     Just config -> do
-      traverse_ (handleEdge ref) config.edges
+      traverse_ (flip runRelation $ ref) config.relations
       pure unit
-
-handleEdge :: ∀ eff v m
-  . MonadAff (console :: CONSOLE | eff) m
- => InputRef
- -> Edge
- -> H.ComponentDSL (State v) Query Message m Unit
-handleEdge refA = case _ of
-  MustEqual refB -> do
-    st <- H.get
-    let equal = do
-          v0 <- Map.lookup refA st.form
-          v1 <- Map.lookup refB st.form
-          pure $ v0 == v1
-    case equal of
-      Just true -> do
-        H.liftAff $ Console.log $ show refA <> " is equal to " <> show refB
-      otherwise -> do
-        H.liftAff $ Console.log $ show refA <> " is NOT equal to " <> show refB
-    pure unit
-
-  Clear refB -> do
-    H.modify \st -> st { form = Map.insert refB "" st.form }
-    H.liftAff $ Console.logShow $ "Deleted " <> show refB
-    pure unit
-
