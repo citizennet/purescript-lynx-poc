@@ -1,4 +1,4 @@
-module App.Form where
+module App.Forms.Signup where
 
 import Prelude
 
@@ -17,22 +17,22 @@ import Halogen.HTML.Properties as HP
 import Lynx.Component as Component
 import Lynx.Graph (Form, InputRef, FormM, input, relate, runFormBuilder, validate)
 
-type UserForm  = Form  UserValidate UserInput UserRelation User
-type UserFormM = FormM UserValidate UserInput UserRelation User
+type SignupForm  = Form  SignupValidate SignupInput SignupRelation User
+type SignupFormM = FormM SignupValidate SignupInput SignupRelation User
 
 type User =
   { username :: String
   , password :: String
   }
 
-data UserInput
+data SignupInput
   = Text { label :: String }
 
-data UserRelation
+data SignupRelation
   = MustEqual InputRef
   | Clear InputRef
 
-data UserValidate
+data SignupValidate
   = InRange Int Int
   | NonEmpty
 
@@ -41,8 +41,8 @@ data UserValidate
 -- FORM
 
 -- A user signup form
-userSignup :: UserForm
-userSignup = runFormBuilder do
+form :: SignupForm
+form = runFormBuilder do
   user  <- input (Text { label: "Username" })
     >>= validate NonEmpty
   pass1 <- input (Text { label: "Password 1" })
@@ -54,8 +54,8 @@ userSignup = runFormBuilder do
   gets _.inputs >>= \m -> pure { fields: m }
 
 -- A function to run user validation
-userValidation :: UserValidate -> String -> Either String String
-userValidation v str = case v of
+handleValidation :: SignupValidate -> String -> Either String String
+handleValidation v str = case v of
   NonEmpty ->
     if String.null str
       then Left "Field cannot be empty"
@@ -66,11 +66,11 @@ userValidation v str = case v of
       else Right str
 
 -- A function to run user relations
-userRelation :: ∀ eff
-   . UserRelation
+handleRelation :: ∀ eff
+   . SignupRelation
   -> InputRef
-  -> H.ComponentDSL (Component.State UserValidate UserInput UserRelation User) Component.Query Component.Message (Aff (Component.Effects eff)) Unit
-userRelation relation refA = case relation of
+  -> H.ComponentDSL (Component.State SignupValidate SignupInput SignupRelation User) Component.Query Component.Message (Aff (Component.Effects eff)) Unit
+handleRelation relation refA = case relation of
   MustEqual refB -> do
     st <- H.get
     let equal = do
@@ -89,11 +89,11 @@ userRelation relation refA = case relation of
     pure unit
 
 -- A function to render user inputs
-renderUserInput
-  :: Component.State UserValidate UserInput UserRelation User
+renderInput
+  :: Component.State SignupValidate SignupInput SignupRelation User
   -> InputRef
   -> H.ComponentHTML Component.Query
-renderUserInput st ref =
+renderInput st ref =
   let attr = HP.attr (HH.AttrName "data-inputref") (show $ unwrap ref)
       config = Map.lookup ref st.config.fields
    in case config of
