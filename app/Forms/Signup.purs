@@ -15,10 +15,9 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events (input, input_, onBlur, onValueInput) as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Component as Component
-import Lynx.Graph (Form, InputRef, FormM, input, relate, runFormBuilder, validate)
+import Lynx.Graph (Form, InputRef, input, relate, runFormBuilder, validate)
 
 type SignupForm  = Form  SignupValidate SignupInput SignupRelation User
-type SignupFormM = FormM SignupValidate SignupInput SignupRelation User
 
 type User =
   { username :: String
