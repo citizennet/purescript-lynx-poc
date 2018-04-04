@@ -12,4 +12,4 @@ import Lynx.Component (component)
 main :: Eff (HA.HalogenEffects (console :: CONSOLE)) Unit
 main = HA.runHalogenAff do
   body <- HA.awaitBody
-  runUI (component Form.userSignup) unit body
+  runUI (component Form.userSignup Form.userValidation) unit body

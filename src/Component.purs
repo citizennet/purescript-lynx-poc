@@ -5,6 +5,9 @@ import Prelude
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as Console
+import Data.Array ((:))
+import Data.Either (Either(..))
+import Data.Foldable (foldr)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
@@ -23,16 +26,17 @@ data Query a
 
 type Message = Void
 
-type State =
-  { config :: Form
+type State v =
+  { config :: Form v
   , form :: Map.Map InputRef String
   }
 
-component :: ∀ eff m
+component :: ∀ eff v m
    . MonadAff (console :: CONSOLE | eff) m
-  => Form
+  => Form v
+  -> (v -> String -> Either String String)
   -> H.Component HH.HTML Query Unit Message m
-component form =
+component form validator =
   H.component
     { initialState: const { config: form, form: (const "") <$> form.fields }
     , render
@@ -40,19 +44,20 @@ component form =
     , receiver: const Nothing
     }
   where
-    eval :: Query ~> H.ComponentDSL State Query Message m
+    eval :: Query ~> H.ComponentDSL (State v) Query Message m
     eval = case _ of
       UpdateValue ref str a -> a <$ do
         H.modify \st -> st { form = Map.insert ref str st.form }
 
       Blur ref a -> a <$ do
         runEdges ref
+        runValidations ref validator
 
       Submit a -> a <$ do
         refs <- H.gets (Map.keys <<< _.form)
         traverse_ runEdges refs
 
-    render :: State -> H.ComponentHTML Query
+    render :: State v -> H.ComponentHTML Query
     render st = HH.div_
       [ HH.div_ $ renderInput st <$> Map.toAscUnfoldable st.config.fields
       , HH.button
@@ -60,7 +65,7 @@ component form =
           [ HH.text "Submit" ]
       ]
 
-    renderInput :: State -> Tuple InputRef InputConfig -> H.ComponentHTML Query
+    renderInput :: State v -> Tuple InputRef (InputConfig v) -> H.ComponentHTML Query
     renderInput st (Tuple ref { name, "type": t }) =
       let attr = HP.attr (HH.AttrName "data-inputref") (show $ unwrap ref)
        in case t of
@@ -75,10 +80,30 @@ component form =
                 ]
             ]
 
-runEdges :: ∀ eff m
+runValidations :: ∀ eff v m
   . MonadAff (console :: CONSOLE | eff) m
  => InputRef
- -> H.ComponentDSL State Query Message m Unit
+ -> (v -> String -> Either String String)
+ -> H.ComponentDSL (State v) Query Message m Unit
+runValidations ref validate = do
+  st <- H.get
+  case Map.lookup ref st.form of
+    Nothing -> pure unit
+    Just val -> case Map.lookup ref st.config.fields of
+      Nothing -> pure unit
+      Just config -> do
+        let successive (Left str) arr = str : arr
+            successive _ arr = arr
+            res = case foldr (\v arr -> successive (validate v val) arr) [] config.validations of
+              [] -> Right $ "Valid: " <> val
+              arr -> Left arr
+        _ <- H.liftAff $ Console.logShow res
+        pure unit
+
+runEdges :: ∀ eff v m
+  . MonadAff (console :: CONSOLE | eff) m
+ => InputRef
+ -> H.ComponentDSL (State v) Query Message m Unit
 runEdges ref = do
   st <- H.get
   case Map.lookup ref st.config.fields of
@@ -87,11 +112,11 @@ runEdges ref = do
       traverse_ (handleEdge ref) config.edges
       pure unit
 
-handleEdge :: ∀ eff m
+handleEdge :: ∀ eff v m
   . MonadAff (console :: CONSOLE | eff) m
  => InputRef
  -> Edge
- -> H.ComponentDSL State Query Message m Unit
+ -> H.ComponentDSL (State v) Query Message m Unit
 handleEdge refA = case _ of
   MustEqual refB -> do
     st <- H.get
