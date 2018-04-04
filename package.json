@@ -1,7 +1,7 @@
 {
   "name": "purescript-lynx",
   "version": "0.0.1",
-  "repository": "git@github.com:citizennet/purescript-lynx",
+  "repository": "git@github.com:thomashoneyman/purescript-lynx",
   "author": "Thomas R. Honeyman <admin@thomashoneyman.com>",
   "license": "MIT",
   "private": true,
