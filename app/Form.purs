@@ -7,22 +7,18 @@ import Data.Either (Either(..))
 import Data.String as String
 import Lynx.Graph (Form, FormInput(..), clear, input, mustEqual, runFormBuilder, validate)
 
--- | Used here, constructs the dsl into a Form
-type User =
-  { username :: String
-  , password :: String
-  }
+-- | Used to build a component like this: `(component userSignup userValidation)`
 
 userSignup :: Form UserValidate
 userSignup = runFormBuilder do
   user  <- input Text "Username"
-    >>= (_ `validate` NonEmpty)
+    >>= validate NonEmpty
   pass1 <- input Text "Password 1"
-    >>= (_ `validate` InRange 5 15)
-    >>= (_ `clear` user)
+    >>= validate (InRange 5 15)
+    >>= clear user
   pass2 <- input Text "Password 2"
-    >>= (_ `validate` InRange 5 15)
-    >>= (_ `mustEqual` pass1)
+    >>= validate (InRange 5 15)
+    >>= mustEqual pass1
   gets _.inputs >>= \m -> pure { fields: m }
 
 data UserValidate

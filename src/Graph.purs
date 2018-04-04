@@ -79,17 +79,17 @@ input inputType name  = do
     , inputs = Map.insert ref { "type": inputType, name, edges: [], validations: [] } st.inputs }
   pure ref
 
-validate :: ∀ v. InputRef -> v -> FormM v InputRef
-validate a validation = do
+validate :: ∀ v. v -> InputRef -> FormM v InputRef
+validate validation ref = do
   st <- get
   let f = \v -> Just $ v { validations = validation : v.validations }
-  modify _ { inputs = Map.update f a st.inputs }
-  pure a
+  modify _ { inputs = Map.update f ref st.inputs }
+  pure ref
 
 -- | Assert that two fields must equal one another. Returns the original
 -- ref for successive binding.
 mustEqual :: ∀ v. InputRef -> InputRef -> FormM v InputRef
-mustEqual a b = do
+mustEqual b a = do
   st <- get
   let fa = \v -> Just $ v { edges = MustEqual b : v.edges }
       fb = \v -> Just $ v { edges = MustEqual a : v.edges }
@@ -98,7 +98,7 @@ mustEqual a b = do
 
 -- | Assert that another field should be cleared on change
 clear :: ∀ v. InputRef -> InputRef -> FormM v InputRef
-clear a b = do
+clear b a = do
   st <- get
   let f = \v -> Just $ v { edges = Clear b : v.edges }
   modify _ { inputs = Map.update f a st.inputs }
