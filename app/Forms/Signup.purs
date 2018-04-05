@@ -2,15 +2,15 @@ module App.Forms.Signup where
 
 import Prelude
 
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console as Console
-import Control.Monad.State (gets)
+import Control.Monad.State (class MonadState, get, gets, modify)
 import Data.Either (Either(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.String as String
-import Halogen as H
+import Halogen (ComponentHTML) as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events (input, input_, onBlur, onValueInput) as HE
 import Halogen.HTML.Properties as HP
@@ -65,13 +65,15 @@ handleValidation v str = case v of
       else Right str
 
 -- A function to run user relations
-handleRelation :: ∀ eff
-   . SignupRelation
+handleRelation :: ∀ eff m
+   . MonadState (Component.State SignupValidate SignupInput SignupRelation User) m
+  => MonadAff (Component.Effects eff) m
+  => SignupRelation
   -> InputRef
-  -> H.ComponentDSL (Component.State SignupValidate SignupInput SignupRelation User) Component.Query Component.Message (Aff (Component.Effects eff)) Unit
+  -> m Unit
 handleRelation relation refA = case relation of
   MustEqual refB -> do
-    st <- H.get
+    st <- get
     let equal = do
           v0 <- Map.lookup refA st.form
           v1 <- Map.lookup refB st.form
@@ -79,12 +81,12 @@ handleRelation relation refA = case relation of
     case equal of
       Just true -> pure unit
       otherwise -> do
-        H.liftAff $ Console.log $ show refA <> " is NOT equal to " <> show refB
+        liftAff $ Console.log $ show refA <> " is NOT equal to " <> show refB
         pure unit
 
   Clear refB -> do
-    H.modify \st -> st { form = Map.insert refB "" st.form }
-    H.liftAff $ Console.logShow $ "Deleted " <> show refB
+    modify \st -> st { form = Map.insert refB "" st.form }
+    liftAff $ Console.logShow $ "Deleted " <> show refB
     pure unit
 
 -- A function to render user inputs
