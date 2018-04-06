@@ -43,12 +43,14 @@ form2 = runFormBuilder 1 do
   count <- input (Text { label: "Count" })
     >>= validate NonEmpty
   size <- input (Text { label: "Size" })
-    >>= validate NonEmpty
-    >>= relate (Clear count)
   count2 <- input (Text { label: "Count 2" })
     >>= validate NonEmpty
     >>= validate (InRange 0 2)
     >>= relate (MustEqual count)
+
+  -- Can add relations later on, not necessarily in-place
+  _ <- relate (Clear count) size
+  _ <- validate NonEmpty size
   pure =<< get
 
 ----------
