@@ -20,6 +20,40 @@ import Lynx.Graph (FormConfig, InputConfig(..), InputRef, input, relate, runForm
 
 type SignupForm = FormConfig SignupValidate SignupInput SignupRelation
 
+-- A user signup form
+form :: SignupForm
+form = runFormBuilder 0 do
+  user  <- input (Text { label: "Username" })
+    >>= validate NonEmpty
+  pass1 <- input (Text { label: "Password 1" })
+    >>= validate (InRange 5 15)
+    >>= relate (MustEqual user)
+  pass2 <- input (Text { label: "Password 2" })
+    >>= validate (InRange 5 15)
+    >>= relate (Clear pass1)
+  pure =<< get
+
+form2 :: SignupForm
+form2 = runFormBuilder 1 do
+  name <- input (Text { label: "Name" })
+    >>= validate NonEmpty
+  email <- input (Text { label: "Email" })
+    >>= validate NonEmpty
+    >>= validate (InRange 5 15)
+  count <- input (Text { label: "Count" })
+    >>= validate NonEmpty
+  size <- input (Text { label: "Size" })
+    >>= validate NonEmpty
+    >>= relate (Clear count)
+  count2 <- input (Text { label: "Count 2" })
+    >>= validate NonEmpty
+    >>= validate (InRange 0 2)
+    >>= relate (MustEqual count)
+  pure =<< get
+
+----------
+-- A form, in parts
+
 data SignupInput
   = Text { label :: String }
 
@@ -99,20 +133,7 @@ instance decodeJsonSignupValidate :: DecodeJson SignupValidate where
 
 
 ---------
--- FORM
-
--- A user signup form
-form :: SignupForm
-form = runFormBuilder 0 do
-  user  <- input (Text { label: "Username" })
-    >>= validate NonEmpty
-  pass1 <- input (Text { label: "Password 1" })
-    >>= validate (InRange 5 15)
-    >>= relate (MustEqual user)
-  pass2 <- input (Text { label: "Password 2" })
-    >>= validate (InRange 5 15)
-    >>= relate (Clear pass1)
-  pure =<< get
+-- HELPERS
 
 -- A function to run user validation
 handleValidation :: SignupValidate -> String -> Either String String
