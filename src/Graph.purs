@@ -44,7 +44,7 @@ instance decodeJsonFormConfig :: (DecodeJson v, DecodeJson i, DecodeJson r) => D
 
 instance encodeJsonFormConfig :: (EncodeJson v, EncodeJson i, EncodeJson r) => EncodeJson (FormConfig v i r) where
   encodeJson (FormConfig { supply, inputs }) = do
-    "supply" := supply
+    "supply" := ("supply" := supply ~> jsonEmptyObject)
     ~> "inputs" := encodeJson inputs
     ~> jsonEmptyObject
 

@@ -1,0 +1,58 @@
+{
+  "supply": { "supply": "3" },
+  "inputs":
+    [
+      [ 0
+      , { "relations": []
+        , "validations":
+          [
+            { "validationType": "NonEmpty" }
+          ]
+        , "inputType":
+          { "inputType": "Text"
+          , "label": "Username"
+          }
+        }
+      ]
+    , [ 1
+      , { "relations":
+          [
+            { "ref": 0
+            , "relationType": "MustEqual"
+            }
+          ]
+        , "validations":
+          [
+            { "from": 5
+            , "to": 15
+            , "validationType": "InRange"
+            }
+          ]
+        , "inputType":
+          { "inputType": "Text"
+          , "label": "Password 1"
+          }
+        }
+      ]
+    , [ 2
+      , { "relations":
+          [
+            { "ref": 1
+            , "relationType": "Clear"
+            }
+          ]
+        , "validations":
+          [
+            { "from": 5
+            , "to": 15
+            , "validationType": "InRange"
+            }
+          ]
+        , "inputType":
+          { "inputType": "Text"
+          , "label": "Password 2"
+          }
+        }
+      ]
+    ]
+}
