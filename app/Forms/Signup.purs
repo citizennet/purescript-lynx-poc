@@ -5,6 +5,7 @@ import Prelude
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console as Console
 import Control.Monad.State (class MonadState, get, modify)
+import Data.Argonaut (class DecodeJson, class EncodeJson, decodeJson, jsonEmptyObject, (:=), (~>), (.?))
 import Data.Either (Either(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -19,21 +20,82 @@ import Lynx.Graph (FormConfig, InputConfig(..), InputRef, input, relate, runForm
 
 type SignupForm = FormConfig SignupValidate SignupInput SignupRelation
 
-type User =
-  { username :: String
-  , password :: String
-  }
-
 data SignupInput
   = Text { label :: String }
+
+instance encodeJsonSignupInput :: EncodeJson SignupInput where
+  encodeJson = case _ of
+    Text { label } -> do
+      "inputType" := "Text"
+      ~> "label" := label
+      ~> jsonEmptyObject
+
+instance decodeJsonSignupInput :: DecodeJson SignupInput where
+  decodeJson json = do
+    obj <- decodeJson json
+    str <- obj .? "inputType"
+    input <- case str of
+      "Text" -> do
+        label <- obj .? "label"
+        pure $ Text { label }
+      otherwise ->
+        Left $ "No case written to decode:\n" <> "  " <> str <> "\n"
+    pure input
 
 data SignupRelation
   = MustEqual InputRef
   | Clear InputRef
 
+instance encodeJsonSignupRelation :: EncodeJson SignupRelation where
+  encodeJson =
+    let update str i = do
+          "relationType" := str
+          ~> "ref" := i
+          ~> jsonEmptyObject
+     in case _ of
+      MustEqual i -> update "MustEqual" i
+      Clear i -> update "Clear" i
+
+instance decodeJsonSignupRelation :: DecodeJson SignupRelation where
+  decodeJson json = do
+    obj <- decodeJson json
+    ref <- obj .? "ref"
+    str <- obj .? "relationType"
+    relation <- case str of
+      "MustEqual" -> pure $ MustEqual ref
+      "Clear" -> pure $ Clear ref
+      otherwise ->
+        Left $ "No case written to decode:\n" <> "  " <> str <> "\n"
+    pure relation
+
 data SignupValidate
   = InRange Int Int
   | NonEmpty
+
+instance encodeJsonSignupValidate :: EncodeJson SignupValidate where
+  encodeJson = case _ of
+    InRange i0 i1 -> do
+      "validationType" := "InRange"
+      ~> "from" := i0
+      ~> "to" := i1
+      ~> jsonEmptyObject
+    NonEmpty -> do
+      "validationType" := "NonEmpty"
+      ~> jsonEmptyObject
+
+instance decodeJsonSignupValidate :: DecodeJson SignupValidate where
+  decodeJson json = do
+    obj <- decodeJson json
+    str <- obj .? "validationType"
+    validate <- case str of
+      "InRange" -> do
+        from <- obj .? "from"
+        to <- obj .? "to"
+        pure $ InRange from to
+      "NonEmpty" -> pure NonEmpty
+      otherwise ->
+        Left $ "No case written to decode:\n" <> "  " <> str <> "\n"
+    pure validate
 
 
 ---------
