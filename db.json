@@ -20,7 +20,7 @@
           , [ 1
             , { "relations":
                 [
-                  { "ref": 0
+                  { "ref": 2
                   , "relationType": "MustEqual"
                   }
                 ]
