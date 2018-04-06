@@ -31,7 +31,7 @@ type FormConfig v i r =
 
 -- | Our eventual built form
 -- b: phantom type representing what it ought to parse to
-type Form v i r b =
+type Form v i r =
   { fields :: Map InputRef (InputConfig v i r) }
 
 -- | A unique identifier for fields in a form

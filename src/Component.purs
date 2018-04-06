@@ -25,8 +25,8 @@ data Query a
 
 data Message
 
-type State v i r b =
-  { config :: Form v i r b
+type State v i r =
+  { config :: Form v i r
   , form :: Map.Map InputRef String
   }
 
@@ -34,11 +34,11 @@ type Effects eff =
   ( console :: CONSOLE
   | eff )
 
-component :: ∀ eff v i r b
-   . Form v i r b
+component :: ∀ eff v i r
+   . Form v i r
   -> (v -> String -> Either String String)
-  -> (State v i r b -> InputRef -> H.ComponentHTML Query)
-  -> (r -> InputRef -> H.ComponentDSL (State v i r b) Query Message (Aff (Effects eff)) Unit)
+  -> (State v i r -> InputRef -> H.ComponentHTML Query)
+  -> (r -> InputRef -> H.ComponentDSL (State v i r) Query Message (Aff (Effects eff)) Unit)
   -> H.Component HH.HTML Query Unit Message (Aff (Effects eff))
 component form handleValidation handleInput handleRelations =
   H.component
@@ -48,7 +48,7 @@ component form handleValidation handleInput handleRelations =
     , receiver: const Nothing
     }
   where
-    eval :: Query ~> H.ComponentDSL (State v i r b) Query Message (Aff (Effects eff))
+    eval :: Query ~> H.ComponentDSL (State v i r) Query Message (Aff (Effects eff))
     eval = case _ of
       UpdateValue ref str a -> a <$ do
         H.modify \st -> st { form = Map.insert ref str st.form }
@@ -61,7 +61,7 @@ component form handleValidation handleInput handleRelations =
         refs <- H.gets (Map.keys <<< _.form)
         traverse_ (flip runRelations $ handleRelations) refs
 
-    render :: State v i r b -> H.ComponentHTML Query
+    render :: State v i r -> H.ComponentHTML Query
     render st = HH.div_
       [ HH.div_ $ Array.fromFoldable $ (handleInput st) <$> Map.keys st.config.fields
       , HH.button
@@ -70,11 +70,11 @@ component form handleValidation handleInput handleRelations =
       ]
 
 -- Attempt to use the provided validation helper to run on the form validations
-runValidations :: ∀ eff v i r b m
+runValidations :: ∀ eff v i r m
   . MonadAff (Effects eff) m
  => InputRef
  -> (v -> String -> Either String String)
- -> H.ComponentDSL (State v i r b) Query Message m Unit
+ -> H.ComponentDSL (State v i r) Query Message m Unit
 runValidations ref validate = do
   st <- H.get
   case Map.lookup ref st.form of
@@ -91,11 +91,11 @@ runValidations ref validate = do
         pure unit
 
 -- Attempt to use the provided relations helper to run on form relations
-runRelations :: ∀ eff v i r b m
+runRelations :: ∀ eff v i r m
   . MonadAff (Effects eff) m
  => InputRef
- -> (r -> InputRef -> H.ComponentDSL (State v i r b) Query Message m Unit)
- -> H.ComponentDSL (State v i r b) Query Message m Unit
+ -> (r -> InputRef -> H.ComponentDSL (State v i r) Query Message m Unit)
+ -> H.ComponentDSL (State v i r) Query Message m Unit
 runRelations ref runRelation = do
   st <- H.get
   case Map.lookup ref st.config.fields of

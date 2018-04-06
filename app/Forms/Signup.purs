@@ -17,7 +17,7 @@ import Halogen.HTML.Properties as HP
 import Lynx.Component as Component
 import Lynx.Graph (Form, InputRef, input, relate, runFormBuilder, validate)
 
-type SignupForm  = Form  SignupValidate SignupInput SignupRelation User
+type SignupForm = Form SignupValidate SignupInput SignupRelation
 
 type User =
   { username :: String
@@ -66,7 +66,7 @@ handleValidation v str = case v of
 
 -- A function to run user relations
 handleRelation :: ∀ eff m
-   . MonadState (Component.State SignupValidate SignupInput SignupRelation User) m
+   . MonadState (Component.State SignupValidate SignupInput SignupRelation) m
   => MonadAff (Component.Effects eff) m
   => SignupRelation
   -> InputRef
@@ -91,7 +91,7 @@ handleRelation relation refA = case relation of
 
 -- A function to render user inputs
 renderInput
-  :: Component.State SignupValidate SignupInput SignupRelation User
+  :: Component.State SignupValidate SignupInput SignupRelation
   -> InputRef
   -> H.ComponentHTML Component.Query
 renderInput st ref =
