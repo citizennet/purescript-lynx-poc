@@ -17,7 +17,8 @@
     "purescript-foreign-generic": "^5.0.1",
     "purescript-simple-json": "^2.0.1",
     "purescript-halogen": "^3.1.2",
-    "purescript-polyform": "^0.6.1"
+    "purescript-polyform": "^0.6.1",
+    "purescript-affjax": "^5.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0"

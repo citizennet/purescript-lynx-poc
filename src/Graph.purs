@@ -20,13 +20,14 @@ import Data.Traversable (traverse)
 type FormM v i r = State (FormConfig v i r)
 
 -- | Runs a form builder, retrieving the built value
-runFormBuilder :: ∀ v i r a. FormM v i r a -> a
-runFormBuilder = flip evalState $ wrap { supply: 0, inputs: Map.empty }
+runFormBuilder :: ∀ v i r a. Int -> FormM v i r a -> a
+runFormBuilder i = flip evalState $ wrap { id: i, supply: 0, inputs: Map.empty }
 
 -- A configuration supplying an incrementing supply of identifiers and a graph
 -- of fields.
 newtype FormConfig v i r = FormConfig
-  { supply :: Int
+  { id :: Int
+  , supply :: Int
   , inputs :: Map InputRef (InputConfig v i r)
   }
 derive instance newtypeFormConfig :: Newtype (FormConfig v i r) _
@@ -38,13 +39,14 @@ instance showFormConfig :: (Show v, Show i, Show r) => Show (FormConfig v i r) w
 instance decodeJsonFormConfig :: (DecodeJson v, DecodeJson i, DecodeJson r) => DecodeJson (FormConfig v i r) where
   decodeJson json = do
     obj <- decodeJson json
+    id <- obj .? "id"
     supply <- obj .? "supply"
     inputs <- obj .? "inputs"
-    pure $ FormConfig { supply, inputs }
+    pure $ FormConfig { id, supply, inputs }
 
 instance encodeJsonFormConfig :: (EncodeJson v, EncodeJson i, EncodeJson r) => EncodeJson (FormConfig v i r) where
   encodeJson (FormConfig { supply, inputs }) = do
-    "supply" := ("supply" := supply ~> jsonEmptyObject)
+    "supply" := supply
     ~> "inputs" := encodeJson inputs
     ~> jsonEmptyObject
 

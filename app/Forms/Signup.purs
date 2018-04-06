@@ -103,7 +103,7 @@ instance decodeJsonSignupValidate :: DecodeJson SignupValidate where
 
 -- A user signup form
 form :: SignupForm
-form = runFormBuilder do
+form = runFormBuilder 0 do
   user  <- input (Text { label: "Username" })
     >>= validate NonEmpty
   pass1 <- input (Text { label: "Password 1" })

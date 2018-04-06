@@ -2,6 +2,7 @@ module Lynx.Component where
 
 import Prelude
 
+import Data.Argonaut (class DecodeJson, Json, decodeJson)
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Console (CONSOLE)
@@ -17,40 +18,57 @@ import Data.Traversable (traverse_)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Lynx.Graph (FormConfig, InputConfig(..), InputRef)
+import Lynx.Graph (FormConfig(..), InputConfig(..), InputRef)
+import Network.HTTP.Affjax (AJAX, get)
 
 data Query a
   = UpdateValue InputRef String a
   | Blur InputRef a
   | Submit a
+  | GetForm Int a
 
 data Message
 
 type State v i r =
   { config :: FormConfig v i r
   , form :: Map.Map InputRef String
+  , selectedForm :: Int
   }
 
 type Effects eff =
   ( console :: CONSOLE
+  , ajax :: AJAX
   | eff )
 
 component :: ∀ eff v i r
-   . FormConfig v i r
-  -> (v -> String -> Either String String)
+   . DecodeJson v
+  => DecodeJson i
+  => DecodeJson r
+  => (v -> String -> Either String String)
   -> (State v i r -> InputRef -> H.ComponentHTML Query)
   -> (r -> InputRef -> H.ComponentDSL (State v i r) Query Message (Aff (Effects eff)) Unit)
   -> H.Component HH.HTML Query Unit Message (Aff (Effects eff))
-component form handleValidation handleInput handleRelations =
-  H.component
-    { initialState: const { config: form, form: (const "") <$> (_.inputs $ unwrap form) }
+component handleValidation handleInput handleRelations =
+  H.lifecycleComponent
+    { initialState: const { config: FormConfig { id: 0, supply: 0, inputs: Map.empty }, form: Map.empty, selectedForm: 0 }
     , render
     , eval
     , receiver: const Nothing
+    , initializer: Just $ H.action (GetForm 0)
+    , finalizer: Nothing
     }
   where
     eval :: Query ~> H.ComponentDSL (State v i r) Query Message (Aff (Effects eff))
     eval = case _ of
+      GetForm i a -> a <$ do
+        (res :: Json) <- H.liftAff $ _.response <$> get ("http://localhost:3000/forms/" <> show 0)
+        let (eitherForm :: Either String (FormConfig v i r)) = decodeJson res
+        case eitherForm of
+          Left s -> H.liftAff $ Console.log s *> pure a
+          Right form -> do
+             H.modify \st -> st { config = form, form = (const "") <$> (_.inputs $ unwrap form) }
+             pure a
+
       UpdateValue ref str a -> a <$ do
         H.modify \st -> st { form = Map.insert ref str st.form }
 
