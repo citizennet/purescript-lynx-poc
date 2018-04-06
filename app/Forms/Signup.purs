@@ -4,7 +4,7 @@ import Prelude
 
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console as Console
-import Control.Monad.State (class MonadState, get, gets, modify)
+import Control.Monad.State (class MonadState, get, modify)
 import Data.Either (Either(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -15,9 +15,9 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events (input, input_, onBlur, onValueInput) as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Component as Component
-import Lynx.Graph (Form, InputRef, input, relate, runFormBuilder, validate)
+import Lynx.Graph (FormConfig, InputConfig(..), InputRef, input, relate, runFormBuilder, validate)
 
-type SignupForm = Form SignupValidate SignupInput SignupRelation
+type SignupForm = FormConfig SignupValidate SignupInput SignupRelation
 
 type User =
   { username :: String
@@ -50,7 +50,7 @@ form = runFormBuilder do
   pass2 <- input (Text { label: "Password 2" })
     >>= validate (InRange 5 15)
     >>= relate (Clear pass1)
-  gets _.inputs >>= \m -> pure { fields: m }
+  pure =<< get
 
 -- A function to run user validation
 handleValidation :: SignupValidate -> String -> Either String String
@@ -96,9 +96,9 @@ renderInput
   -> H.ComponentHTML Component.Query
 renderInput st ref =
   let attr = HP.attr (HH.AttrName "data-inputref") (show $ unwrap ref)
-      config = Map.lookup ref st.config.fields
+      config = Map.lookup ref (_.inputs $ unwrap st.config)
    in case config of
-        Just { inputType } -> case inputType of
+        Just (InputConfig { inputType }) -> case inputType of
           Text { label } ->
             HH.div_
               [ HH.text label

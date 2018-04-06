@@ -3,13 +3,14 @@ module Lynx.Graph where
 import Prelude
 
 import Control.Monad.State (State, evalState, get, modify)
+import Data.Argonaut (class DecodeJson, class EncodeJson, decodeJson, encodeJson, jsonEmptyObject, (.?), (:=), (~>))
 import Data.Array ((:))
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
+import Data.Newtype (class Newtype, wrap)
+import Data.Traversable (traverse)
 
 ----------
 -- Form
@@ -20,61 +21,98 @@ type FormM v i r = State (FormConfig v i r)
 
 -- | Runs a form builder, retrieving the built value
 runFormBuilder :: ∀ v i r a. FormM v i r a -> a
-runFormBuilder = (flip evalState) { supply: 0, inputs: Map.empty }
+runFormBuilder = flip evalState $ wrap { supply: 0, inputs: Map.empty }
 
 -- A configuration supplying an incrementing supply of identifiers and a graph
 -- of fields.
-type FormConfig v i r =
+newtype FormConfig v i r = FormConfig
   { supply :: Int
   , inputs :: Map InputRef (InputConfig v i r)
   }
+derive instance newtypeFormConfig :: Newtype (FormConfig v i r) _
+derive instance genericFormConfig :: Generic (FormConfig v i r) _
 
--- | Our eventual built form
--- b: phantom type representing what it ought to parse to
-type Form v i r =
-  { fields :: Map InputRef (InputConfig v i r) }
+instance showFormConfig :: (Show v, Show i, Show r) => Show (FormConfig v i r) where
+  show = genericShow
+
+instance decodeJsonFormConfig :: (DecodeJson v, DecodeJson i, DecodeJson r) => DecodeJson (FormConfig v i r) where
+  decodeJson json = do
+    obj <- decodeJson json
+    supply <- obj .? "supply"
+    inputs <- obj .? "inputs"
+    pure $ FormConfig { supply, inputs }
+
+instance encodeJsonFormConfig :: (EncodeJson v, EncodeJson i, EncodeJson r) => EncodeJson (FormConfig v i r) where
+  encodeJson (FormConfig { supply, inputs }) = do
+    "supply" := supply
+    ~> "inputs" := encodeJson inputs
+    ~> jsonEmptyObject
 
 -- | A unique identifier for fields in a form
 newtype InputRef = InputRef Int
 derive instance newtypeInputRef :: Newtype InputRef _
+derive instance genericInputRef :: Generic InputRef _
 derive instance eqInputRef :: Eq InputRef
 derive instance ordInputRef :: Ord InputRef
-derive instance genericInputRef :: Generic InputRef _
+
 instance showInputRef :: Show InputRef where
   show = genericShow
+
+instance decodeJsonInputRef :: DecodeJson InputRef where
+  decodeJson json = (pure <<< InputRef) =<< decodeJson json
+
+instance encodeJsonInputRef :: EncodeJson InputRef where
+  encodeJson (InputRef int) = encodeJson int
 
 -- v: the possible validations you'd like to
 --    run in this form (as constructors)
 -- i: the possible input types for the form
 -- r: the possible set of relations for the form
-type InputConfig v i r =
+newtype InputConfig v i r = InputConfig
   { inputType   :: i
   , relations   :: Array r
   , validations :: Array v
-  --  , triggers    :: Array t
   }
+derive instance newtypeInputConfig :: Newtype (InputConfig v i r) _
+derive instance genericInputConfig :: Generic (InputConfig v i r) _
+instance showInputConfig :: (Show v, Show i, Show r) => Show (InputConfig v i r) where
+  show = genericShow
+
+instance decodeJsonInputConfig :: (DecodeJson v, DecodeJson i, DecodeJson r) => DecodeJson (InputConfig v i r) where
+  decodeJson json = do
+    obj <- decodeJson json
+    validations <- traverse decodeJson =<< obj .? "validations"
+    relations <- traverse decodeJson =<< obj .? "relations"
+    inputType <- obj .? "inputType"
+    pure $ InputConfig { inputType, relations, validations }
+
+instance encodeJsonInputConfig :: (EncodeJson v, EncodeJson i, EncodeJson r) => EncodeJson (InputConfig v i r) where
+  encodeJson (InputConfig { inputType, validations, relations }) = do
+    "inputType" := inputType
+    ~> "validations" := (encodeJson <$> validations)
+    ~> "relations" := (encodeJson <$> relations)
+    ~> jsonEmptyObject
 
 -- | Insert a new input into the form. Returns the created ref.
 input :: ∀ v i r. i -> FormM v i r InputRef
 input inputType = do
-  st <- get
-  let ref = InputRef st.supply
-  modify _
-    { supply = st.supply + 1
-    , inputs = Map.insert ref { inputType, relations: [], validations: [] } st.inputs }
+  (FormConfig f) <- get
+  let ref = InputRef f.supply
+  modify \(FormConfig form) -> wrap $ form
+    { supply = form.supply + 1
+    , inputs = Map.insert ref (wrap { inputType, relations: [], validations: [] }) form.inputs }
   pure ref
 
 -- | Augment an input with new validation. Returns the original ref.
 validate :: ∀ v i r. v -> InputRef -> FormM v i r InputRef
 validate validation ref = do
-  st <- get
-  let f = \v -> Just $ v { validations = validation : v.validations }
-  modify _ { inputs = Map.update f ref st.inputs }
+  let f = \(InputConfig v) -> pure $ wrap $ v { validations = validation : v.validations }
+  modify \(FormConfig form) -> wrap $ form { inputs = Map.update f ref form.inputs }
   pure ref
 
 -- | Augment an input with a new relationship
 relate :: ∀ v i r. r -> InputRef -> FormM v i r InputRef
 relate relation ref = do
-  let f = \v -> Just $ v { relations = relation : v.relations }
-  modify \st -> st { inputs = Map.update f ref st.inputs }
+  let f = \(InputConfig v) -> pure $ wrap $ v { relations = relation : v.relations }
+  modify \(FormConfig form) -> wrap $ form { inputs = Map.update f ref form.inputs }
   pure ref
