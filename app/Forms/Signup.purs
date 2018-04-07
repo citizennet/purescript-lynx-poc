@@ -16,13 +16,13 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events (input, input_, onBlur, onValueInput) as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Component as Component
-import Lynx.Graph (FormConfig, InputConfig(..), InputRef, input, relate, runFormBuilder, validate)
+import Lynx.Graph (FormConfig, FormId(..), InputConfig(..), InputRef, input, relate, runFormBuilder, validate)
 
 type SignupForm = FormConfig SignupValidate SignupInput SignupRelation
 
 -- A user signup form
 form :: SignupForm
-form = runFormBuilder 0 do
+form = runFormBuilder (FormId 0) do
   user  <- input (Text { label: "Username" })
     >>= validate NonEmpty
   pass1 <- input (Text { label: "Password 1" })
@@ -34,7 +34,7 @@ form = runFormBuilder 0 do
   pure =<< get
 
 form2 :: SignupForm
-form2 = runFormBuilder 1 do
+form2 = runFormBuilder (FormId 1) do
   name <- input (Text { label: "Name" })
     >>= validate NonEmpty
   email <- input (Text { label: "Email" })

@@ -20,13 +20,13 @@ import Data.Traversable (traverse)
 type FormM v i r = State (FormConfig v i r)
 
 -- | Runs a form builder, retrieving the built value
-runFormBuilder :: ∀ v i r a. Int -> FormM v i r a -> a
+runFormBuilder :: ∀ v i r a. FormId -> FormM v i r a -> a
 runFormBuilder i = flip evalState $ wrap { id: i, supply: 0, inputs: Map.empty }
 
 -- A configuration supplying an incrementing supply of identifiers and a graph
 -- of fields.
 newtype FormConfig v i r = FormConfig
-  { id :: Int
+  { id :: FormId
   , supply :: Int
   , inputs :: Map InputRef (InputConfig v i r)
   }
@@ -65,6 +65,21 @@ instance decodeJsonInputRef :: DecodeJson InputRef where
 
 instance encodeJsonInputRef :: EncodeJson InputRef where
   encodeJson (InputRef int) = encodeJson int
+
+-- | A unique identifier for forms
+newtype FormId = FormId Int
+derive instance newtypeFormId :: Newtype FormId _
+derive instance genericFormId :: Generic FormId _
+derive instance eqFormId :: Eq FormId
+
+instance showFormId :: Show FormId where
+  show = genericShow
+
+instance decodeJsonFormId :: DecodeJson FormId where
+  decodeJson json = (pure <<< FormId) =<< decodeJson json
+
+instance encodeJsonFormId :: EncodeJson FormId where
+  encodeJson (FormId int) = encodeJson int
 
 -- v: the possible validations you'd like to
 --    run in this form (as constructors)
@@ -112,7 +127,7 @@ validate validation ref = do
   modify \(FormConfig form) -> wrap $ form { inputs = Map.update f ref form.inputs }
   pure ref
 
--- | Augment an input with a new relationship
+-- | Augment an input with a new relationship. Returns the original ref.
 relate :: ∀ v i r. r -> InputRef -> FormM v i r InputRef
 relate relation ref = do
   let f = \(InputConfig v) -> pure $ wrap $ v { relations = relation : v.relations }
