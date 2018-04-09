@@ -1,0 +1,13 @@
+{
+  "name": "lynx",
+  "set": "psc-0.11.7",
+  "source": ".",
+  "depends": [
+    "generics-rep",
+    "affjax",
+    "halogen",
+    "argonaut",
+    "console",
+    "prelude"
+  ]
+}
