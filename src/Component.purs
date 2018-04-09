@@ -54,12 +54,12 @@ component handleValidation handleInput handleRelations =
     { initialState:
         const
           { config: FormConfig
-            { id: FormId 0
+            { id: FormId (-1)
             , supply: 0
             , inputs: Map.empty
             }
           , form: Map.empty
-          , selectedForm: FormId 0
+          , selectedForm: FormId (-1)
           }
     , render
     , eval
@@ -71,7 +71,8 @@ component handleValidation handleInput handleRelations =
     eval :: Query ~> H.ComponentDSL (State v i r) Query Message (Aff (Effects eff))
     eval = case _ of
       GetForm i a -> a <$ do
-        (res :: Json) <- H.liftAff $ _.response <$> get ("http://localhost:3000/forms/" <> show 0)
+        (res :: Json) <- H.liftAff $
+           _.response <$> get ("http://localhost:3000/forms/" <> show 0)
         case decodeJson res of
           Left s -> H.liftAff $ Console.log s *> pure a
           Right form -> do

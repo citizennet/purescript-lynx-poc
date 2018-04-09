@@ -19,7 +19,7 @@ import Data.Traversable (traverse)
 -- on State to successively transform a configuration record.
 type FormM v i r = State (FormConfig v i r)
 
--- | Runs a form builder, retrieving the built value
+-- Runs a form builder, retrieving the built value
 runFormBuilder :: ∀ v i r a. FormId -> FormM v i r a -> a
 runFormBuilder i = flip evalState $ wrap { id: i, supply: 0, inputs: Map.empty }
 
@@ -110,7 +110,7 @@ instance encodeJsonInputConfig :: (EncodeJson v, EncodeJson i, EncodeJson r) => 
     ~> "relations" := (encodeJson <$> relations)
     ~> jsonEmptyObject
 
--- | Insert a new input into the form. Returns the created ref.
+-- Insert a new input into the form. Returns the created ref.
 input :: ∀ v i r. i -> FormM v i r InputRef
 input inputType = do
   (FormConfig f) <- get
@@ -120,14 +120,14 @@ input inputType = do
     , inputs = Map.insert ref (wrap { inputType, relations: [], validations: [] }) form.inputs }
   pure ref
 
--- | Augment an input with new validation. Returns the original ref.
+-- Augment an input with new validation. Returns the original ref.
 validate :: ∀ v i r. v -> InputRef -> FormM v i r InputRef
 validate validation ref = do
   let f = \(InputConfig v) -> pure $ wrap $ v { validations = validation : v.validations }
   modify \(FormConfig form) -> wrap $ form { inputs = Map.update f ref form.inputs }
   pure ref
 
--- | Augment an input with a new relationship. Returns the original ref.
+-- Augment an input with a new relationship. Returns the original ref.
 relate :: ∀ v i r. r -> InputRef -> FormM v i r InputRef
 relate relation ref = do
   let f = \(InputConfig v) -> pure $ wrap $ v { relations = relation : v.relations }
