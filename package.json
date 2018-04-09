@@ -10,8 +10,8 @@
     "clean": "rm -rf bower_components node_modules output",
     "build": "pulp build",
     "watch": "pulp --then 'yarn serve' -w build",
-    "build-app": "pulp build -I app && parcel dist/index.html",
-    "watch-app": "pulp --then 'parcel dist/index.html && yarn serve' -w build -I app",
+    "build-app": "pulp build -I app && parcel app/index.html",
+    "watch-app": "pulp --then 'parcel app/index.html && yarn serve' -w build -I app",
     "serve": "json-server db.json"
   },
   "devDependencies": {

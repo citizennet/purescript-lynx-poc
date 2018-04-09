@@ -8,5 +8,5 @@ generated-docs/
 .psc*
 .purs*
 .psa*
-dist/example.js
+dist
 *.lock
