@@ -11,6 +11,8 @@ After building the application and running the database, navigate to `index.html
 - Build / watch the source and run the database server with `yarn watch`
 - Run the server with `yarn serve`
 
+Note: This project builds with `psc-package`, not Bower.
+
 ## Major Todos
 
 - Add a layout DSL that specifies the order of fields and allows you to add extra data (label, etc.)
@@ -21,3 +23,4 @@ After building the application and running the database, navigate to `index.html
 ## Open Questions
 
 - How to support arbitrary HTML in between fields?
+  - Layout DSL that allows you to insert HTML blocks of the right type?
