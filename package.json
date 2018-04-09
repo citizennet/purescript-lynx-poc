@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "postinstall": "psc-package install",
-    "clean": "rm -rf bower_components node_modules output",
+    "clean": "rm -rf bower_components node_modules output && rm *.log *.lock",
     "start": "yarn build && npm-run-all --parallel bundle serve",
     "build": "pulp build -I app",
     "bundle": "parcel app/index.html",
