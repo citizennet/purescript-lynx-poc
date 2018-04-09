@@ -1,4 +1,4 @@
-module Lynx.Component where
+module Lynx.Dynamic.Component where
 
 import Prelude
 
@@ -19,7 +19,7 @@ import Data.Traversable (traverse_)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Lynx.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
+import Lynx.Dynamic.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
 import Network.HTTP.Affjax (AJAX, get)
 
 data Query a
