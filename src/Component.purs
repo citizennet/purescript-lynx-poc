@@ -54,12 +54,12 @@ component handleValidation handleInput handleRelations =
     { initialState:
         const
           { config: FormConfig
-            { id: FormId (-1)
+            { id: FormId 0
             , supply: 0
             , inputs: Map.empty
             }
           , form: Map.empty
-          , selectedForm: FormId (-1)
+          , selectedForm: FormId 0
           }
     , render
     , eval
