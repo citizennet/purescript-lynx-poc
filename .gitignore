@@ -3,6 +3,7 @@ node_modules/
 .pulp-cache/
 output/
 generated-docs/
+.cache/
 .psc-package/
 .psc*
 .purs*

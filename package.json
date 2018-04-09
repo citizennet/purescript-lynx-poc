@@ -10,11 +10,12 @@
     "clean": "rm -rf bower_components node_modules output",
     "build": "pulp build",
     "watch": "pulp --then 'yarn serve' -w build",
-    "build-app": "pulp build -I app --to dist/example.js",
-    "watch-app": "pulp --then 'yarn serve' -w build -I app --to dist/example.js",
-    "serve": "node_modules/json-server/bin/index.js db.json"
+    "build-app": "pulp build -I app && parcel dist/index.html",
+    "watch-app": "pulp --then 'parcel dist/index.html && yarn serve' -w build -I app",
+    "serve": "json-server db.json"
   },
   "devDependencies": {
+    "parcel-bundler": "^1.7.0",
     "pulp": "^12.0.1",
     "purescript": "^0.11.7"
   },
