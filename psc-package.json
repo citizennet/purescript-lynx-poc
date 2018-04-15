@@ -1,13 +1,18 @@
 {
-  "name": "lynx",
+  "name": "purescript-lynx",
   "set": "psc-0.11.7",
   "source": ".",
   "depends": [
-    "generics-rep",
-    "affjax",
+    "variant",
     "halogen",
+    "transformers",
+    "affjax",
     "argonaut",
-    "console",
-    "prelude"
+    "generics-rep",
+    "prelude",
+    "maps",
+    "newtype",
+    "control",
+    "debug"
   ]
 }
