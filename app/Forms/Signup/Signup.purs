@@ -1,4 +1,4 @@
-module App.Forms.Dynamic.Signup where
+module App.Forms.Signup where
 
 import Prelude
 
@@ -15,8 +15,8 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events (input, input_, onBlur, onValueInput) as HE
 import Halogen.HTML.Properties as HP
-import Lynx.Dynamic.Component as Component
-import Lynx.Dynamic.Graph (FormConfig, FormId(..), InputConfig(..), InputRef, input, relate, runFormBuilder, validate)
+import Lynx.Component as Component
+import Lynx.Graph (FormConfig, FormId(..), InputConfig(..), InputRef, input, relate, runFormBuilder, validate)
 
 type SignupForm = FormConfig SignupValidate SignupInput SignupRelation
 

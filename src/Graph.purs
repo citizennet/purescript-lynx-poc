@@ -1,4 +1,4 @@
-module Lynx.Dynamic.Graph where
+module Lynx.Graph where
 
 import Prelude
 
