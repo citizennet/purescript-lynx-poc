@@ -22,11 +22,15 @@ import Halogen.HTML.Events as HE
 import Lynx.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
 import Network.HTTP.Affjax (AJAX, get)
 
-data Query a
+data Query v i r a
   = UpdateValue InputRef String a
   | Blur InputRef a
   | Submit a
   | GetForm FormId a
+  | Initialize a 
+  | Receiver (Input v i r) a
+
+type Input v i r = Either (FormConfig v i r) FormId
 
 data Message
 
@@ -34,6 +38,7 @@ type State v i r =
   { config       :: FormConfig v i r
   , form         :: Map InputRef String
   , selectedForm :: FormId
+  , fromDB       :: Boolean
   }
 
 type Effects eff =
@@ -46,30 +51,50 @@ component :: ∀ eff v i r
   => DecodeJson i
   => DecodeJson r
   => (v -> String -> Either String String)
-  -> (State v i r -> InputRef -> H.ComponentHTML Query)
-  -> (r -> InputRef -> H.ComponentDSL (State v i r) Query Message (Aff (Effects eff)) Unit)
-  -> H.Component HH.HTML Query Unit Message (Aff (Effects eff))
+  -> (State v i r -> InputRef -> H.ComponentHTML (Query v i r))
+  -> (r -> InputRef -> H.ComponentDSL (State v i r) (Query v i r) Message (Aff (Effects eff)) Unit)
+  -> H.Component HH.HTML (Query v i r) (Input v i r) Message (Aff (Effects eff))
 component handleValidation handleInput handleRelations =
   H.lifecycleComponent
-    { initialState:
-        const
-          { config: FormConfig
-            { id: FormId 0
-            , supply: 0
-            , inputs: Map.empty
-            }
-          , form: Map.empty
-          , selectedForm: FormId 0
-          }
+    { initialState
     , render
     , eval
-    , receiver: const Nothing
-    , initializer: Just $ H.action (GetForm $ FormId 0)
+    , receiver: HE.input Receiver
+    , initializer: Just (H.action Initialize)
     , finalizer: Nothing
     }
   where
-    eval :: Query ~> H.ComponentDSL (State v i r) Query Message (Aff (Effects eff))
+    initialState = case _ of
+      Left config -> 
+        { config 
+        , form: Map.empty
+        , selectedForm: FormId 0
+        , fromDB: false
+        }
+      Right formId ->
+        { config: FormConfig
+          { id: FormId 0
+          , supply: 0
+          , inputs: Map.empty
+          }
+        , form: Map.empty
+        , selectedForm: formId
+        , fromDB: true
+        }
+
+    eval :: (Query v i r) ~> H.ComponentDSL (State v i r) (Query v i r) Message (Aff (Effects eff))
     eval = case _ of
+      Initialize a -> do
+        state <- H.get
+        if state.fromDB
+          then eval (GetForm state.selectedForm a)
+          else pure a
+
+      Receiver (Left config) a -> do
+        H.modify _ { config = config } 
+        pure a
+      Receiver (Right _) a -> pure a
+
       GetForm i a -> a <$ do
         (res :: Json) <- H.liftAff $
            _.response <$> get ("http://localhost:3000/forms/" <> show 0)
@@ -93,7 +118,7 @@ component handleValidation handleInput handleRelations =
         refs <- H.gets (Map.keys <<< _.form)
         traverse_ (flip runRelations $ handleRelations) refs
 
-    render :: State v i r -> H.ComponentHTML Query
+    render :: State v i r -> H.ComponentHTML (Query v i r)
     render st = HH.div_
       [ HH.div_ $ Array.fromFoldable $ (handleInput st) <$> Map.keys (_.inputs $ unwrap st.config)
       , HH.button
@@ -106,7 +131,7 @@ runValidations :: ∀ eff v i r m
   . MonadAff (Effects eff) m
  => InputRef
  -> (v -> String -> Either String String)
- -> H.ComponentDSL (State v i r) Query Message m Unit
+ -> H.ComponentDSL (State v i r) (Query v i r) Message m Unit
 runValidations ref validate = do
   st <- H.get
   case Map.lookup ref st.form of
@@ -126,8 +151,8 @@ runValidations ref validate = do
 runRelations :: ∀ eff v i r m
   . MonadAff (Effects eff) m
  => InputRef
- -> (r -> InputRef -> H.ComponentDSL (State v i r) Query Message m Unit)
- -> H.ComponentDSL (State v i r) Query Message m Unit
+ -> (r -> InputRef -> H.ComponentDSL (State v i r) (Query v i r) Message m Unit)
+ -> H.ComponentDSL (State v i r) (Query v i r) Message m Unit
 runRelations ref runRelation = do
   st <- H.get
   case Map.lookup ref (_.inputs $ unwrap st.config) of
