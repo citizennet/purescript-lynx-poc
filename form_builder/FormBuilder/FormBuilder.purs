@@ -42,6 +42,7 @@ data Query a
   | UpdateInput InputRef FBInputConfig a
   | UpdateLabel InputRef FBInputConfig FBInput String a
   | UpdateKey InputRef FBInputConfig FBInput String a
+  | UpdateHelptext InputRef FBInputConfig FBInput String a
   | ToggleRequired InputRef FBInputConfig a
   | Submit a
 
@@ -113,8 +114,8 @@ handleRelation relation refA = case relation of
     pure unit
 
 data FBInput
-  = ShortText { label :: String, key :: String }
-  | LongText { label :: String, key :: String }
+  = ShortText { label :: String, key :: String, helptext :: String }
+  | LongText { label :: String, key :: String, helptext :: String }
   {--| Number { label :: String, key :: String }--}
 
 instance decodeJsonFBInput :: DecodeJson FBInput where
@@ -125,11 +126,13 @@ instance decodeJsonFBInput :: DecodeJson FBInput where
       "ShortText" -> do
         label <- x .? "label"
         key <- x .? "key"
-        pure $ ShortText { label, key }
+        helptext <- x .? "helptext"
+        pure $ ShortText { label, key, helptext }
       "LongText" -> do
         label <- x .? "label"
         key <- x .? "key"
-        pure $ LongText { label, key }
+        helptext <- x .? "helptext"
+        pure $ LongText { label, key, helptext }
       {--"Number" -> do--}
         {--label <- x .? "label"--}
         {--key <- x .? "key"--}
@@ -143,11 +146,13 @@ instance encodeJsonFBInput :: EncodeJson FBInput where
       "inputType" := "ShortText"
       ~> "label" := st.label
       ~> "key" := st.key
+      ~> "helptext" := st.helptext
       ~> jsonEmptyObject
     LongText st -> do
       "inputType" := "LongText"
       ~> "label" := st.label
       ~> "key" := st.key
+      ~> "helptext" := st.helptext
       ~> jsonEmptyObject
     {--Number st -> do--}
       {--"inputType" := "Number"--}
@@ -164,9 +169,9 @@ handleInput st ref =
       config = Map.lookup ref (_.inputs $ unwrap st.config)
    in case config of
         Just (InputConfig { inputType }) -> case inputType of
-          ShortText { label } ->
+          ShortText { label, helptext } ->
             FormField.field_
-              { helpText: Nothing
+              { helpText: Just helptext
               , label
               , valid: Nothing
               , inputId: (show <<< unwrap) ref
@@ -178,9 +183,9 @@ handleInput st ref =
                 , HP.value $ fromMaybe "" $ Map.lookup ref st.form
                 ]  
               ]
-          LongText { label } ->
+          LongText { label, helptext } ->
             FormField.field_
-              { helpText: Nothing
+              { helpText: Just helptext
               , label
               , valid: Nothing
               , inputId: (show <<< unwrap) ref
@@ -282,6 +287,14 @@ formBuilder =
         state <- H.get
         H.modify _ { config = updatefbInput state.config ref i}
         pure a
+      
+      UpdateHelptext ref (InputConfig inputConfig) i helptext a -> do
+        let i' = updateKey i helptext
+            inputConfig' = InputConfig (inputConfig { inputType = i' })
+            updateKey (ShortText x) k = ShortText $ x { helptext = helptext }
+            updateKey (LongText x) k = LongText $ x { helptext = helptext }
+            {--updateKey (Number x) k = Number $ x { key = k }--}
+        eval $ UpdateInput ref inputConfig' a
 
       UpdateKey ref (InputConfig inputConfig) i key a -> do
         let i' = updateKey i key
@@ -314,13 +327,13 @@ formBuilder =
             { color: "bg-red"
             , icon: "fa fa-align-justify"
             , label: "Short Text"
-            , type_: ShortText { label: "", key: "" }
+            , type_: ShortText { label: "", key: "", helptext: "" }
             }
           , mkInput 
             { color: "bg-green"
             , icon: "fa fa-align-justify"
             , label: "Long Text"
-            , type_: LongText { label: "", key: "" } 
+            , type_: LongText { label: "", key: "", helptext: "" } 
             }
           {--, mkInput --}
             {--{ color: "bg-blue"--}
@@ -383,6 +396,17 @@ formBuilder =
                   ]
                 , FormField.field_
                   { helpText: Nothing
+                  , label: "Helptext"
+                  , valid: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.helptext
+                    , HE.onValueInput $ HE.input $ UpdateHelptext k (InputConfig c) inputType
+                    ]  
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
                   , label: "Required"
                   , valid: Nothing
                   , inputId: ""
@@ -421,6 +445,17 @@ formBuilder =
                   [ Input.input
                     [ HP.value l.key
                     , HE.onValueInput $ HE.input $ UpdateKey k (InputConfig c) inputType
+                    ]  
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Helptext"
+                  , valid: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.helptext
+                    , HE.onValueInput $ HE.input $ UpdateHelptext k (InputConfig c) inputType
                     ]  
                   ]
                 , FormField.field_
