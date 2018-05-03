@@ -5,7 +5,15 @@ import Prelude
 import Control.Monad.Aff.Class (class MonadAff, liftAff)
 import Control.Monad.Aff.Console as Console
 import Control.Monad.State (class MonadState, get, modify)
-import Data.Argonaut (class DecodeJson, class EncodeJson, decodeJson, jsonEmptyObject, (:=), (~>), (.?))
+import Data.Argonaut
+  ( class DecodeJson
+  , class EncodeJson
+  , decodeJson
+  , jsonEmptyObject
+  , (:=)
+  , (~>)
+  , (.?)
+  )
 import Data.Either (Either(..))
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -15,8 +23,17 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events (input, input_, onBlur, onValueInput) as HE
 import Halogen.HTML.Properties as HP
-import Lynx.Component as Component
-import Lynx.Graph (FormConfig, FormId(..), InputConfig(..), InputRef, input, relate, runFormBuilder, validate)
+import Lynx.Components.Form as Component
+import Lynx.Data.Graph
+  ( FormConfig
+  , FormId(..)
+  , InputConfig(..)
+  , InputRef
+  , input
+  , relate
+  , runFormBuilder
+  , validate
+  )
 
 type SignupForm = FormConfig SignupValidate SignupInput SignupRelation
 
@@ -175,10 +192,10 @@ handleRelation relation refA = case relation of
     pure unit
 
 -- A function to render user inputs
-renderInput
-  :: Component.State SignupValidate SignupInput SignupRelation
+renderInput :: ∀ v i r
+   . Component.State SignupValidate SignupInput SignupRelation
   -> InputRef
-  -> H.ComponentHTML Component.Query
+  -> H.ComponentHTML (Component.Query v i r)
 renderInput st ref =
   let attr = HP.attr (HH.AttrName "data-inputref") (show $ unwrap ref)
       config = Map.lookup ref (_.inputs $ unwrap st.config)

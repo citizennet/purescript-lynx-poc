@@ -6,15 +6,12 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "clean": "rm -rf bower_components node_modules output && rm *.log *.lock",
+    "clean": "rm -rf bower_components node_modules output",
     "postinstall": "bower i --silent",
     "start": "yarn build && npm-run-all --parallel bundle serve",
-    "start-fb": "yarn build-fb && npm-run-all --parallel bundle-fb serve",
     "build": "pulp build -I app",
-    "build-fb": "pulp build -I form_builder",
-    "watch-fb": "pulp -w build -I form_builder",
+    "watch": "pulp watch -I app",
     "bundle": "parcel app/index.html",
-    "bundle-fb": "parcel form_builder/index.html",
     "serve": "json-server --watch db.json"
   },
   "devDependencies": {
