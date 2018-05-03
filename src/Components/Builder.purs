@@ -1,4 +1,4 @@
-module FormBuilder where
+module Lynx.Components.Builder where
 
 import Prelude
 
@@ -28,22 +28,22 @@ import Halogen.Component.ChildPath (cp1, cp3) as CP
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Lynx.Component as Component
-import Lynx.Graph (FormConfig(..), FormId(..), InputConfig(..), InputRef(..), input, runFormBuilder)
 import Network.HTTP.Affjax (AJAX)
 import Ocelot.Block.Button as Button
 import Ocelot.Block.Card as Card
 import Ocelot.Block.FormField as FormField
 import Ocelot.Block.Input as Input
 import Ocelot.Block.Toggle as Toggle
+import Lynx.Components.Form as Component
+import Lynx.Data.Graph (FormConfig(..), FormId(..), InputConfig(..), InputRef(..), input, runFormBuilder)
 
-data Query a 
-  = AddInput FBInput a
-  | UpdateInput InputRef FBInputConfig a
-  | UpdateLabel InputRef FBInputConfig FBInput String a
-  | UpdateKey InputRef FBInputConfig FBInput String a
-  | UpdateHelptext InputRef FBInputConfig FBInput String a
-  | ToggleRequired InputRef FBInputConfig a
+data Query a
+  = AddInput FormInput a
+  | UpdateInput InputRef FormInputConfig a
+  | UpdateLabel InputRef FormInputConfig FBInput String a
+  | UpdateKey InputRef FormInputConfig FBInput String a
+  | UpdateHelptext InputRef FormInputConfig FBInput String a
+  | ToggleRequired InputRef FormInputConfig a
   | Submit a
 
 type State =
@@ -59,66 +59,15 @@ type Effects eff =
   | eff
   )
 
-type ChildQuery = Coproduct1 (Component.Query FBValidate FBInput FBRelation)
+type ChildQuery = Coproduct1 (Component.Query FBValidate FormInput FBRelation)
 
 type ChildSlot = Either1 Unit
 
-data FBRelation 
-  = MustEqual InputRef
-  | Clear InputRef
-
-instance decodeJsonFBRelation :: DecodeJson FBRelation where
-  decodeJson json = do
-    x <- decodeJson json
-    ref <- x .? "ref"
-    type_ <- x .? "relationType"
-    relation <- case type_ of
-      "MustEqual" -> pure (MustEqual ref)
-      "Clear" -> pure (Clear ref)
-      _ -> Left $ "No case written to decode:\n" <> "  " <> type_ <> "\n"
-    pure relation
-
-instance encodeJsonFBRelation :: EncodeJson FBRelation where
-  encodeJson = case _ of
-    MustEqual ref -> do
-      "relationType" := "MustEqual"
-      ~> "ref" := ref
-      ~> jsonEmptyObject
-    Clear ref ->
-      "relationType" := "Clear"
-      ~> "ref" := ref
-      ~> jsonEmptyObject
-
-handleRelation :: ∀ eff m
-   . MonadState (Component.State FBValidate FBInput FBRelation) m
-  => MonadAff (Component.Effects eff) m
-  => FBRelation 
-  -> InputRef
-  -> m Unit
-handleRelation relation refA = case relation of
-  MustEqual refB -> do
-    st <- H.get
-    let equal = do
-          v0 <- Map.lookup refA st.form
-          v1 <- Map.lookup refB st.form
-          pure $ v0 == v1
-    case equal of
-      Just true -> pure unit
-      otherwise -> do
-        H.liftAff $ log $ show refA <> " is NOT equal to " <> show refB
-        pure unit
-
-  Clear refB -> do
-    H.modify \st -> st { form = Map.insert refB "" st.form }
-    H.liftAff $ logShow $ "Deleted " <> show refB
-    pure unit
-
-data FBInput
+data FormInput
   = ShortText { label :: String, key :: String, helptext :: String }
   | LongText { label :: String, key :: String, helptext :: String }
-  {--| Number { label :: String, key :: String }--}
 
-instance decodeJsonFBInput :: DecodeJson FBInput where
+instance decodeJsonFormInput :: DecodeJson FormInput where
   decodeJson json = do
     x <- decodeJson json
     type_ <- x .? "inputType"
@@ -133,14 +82,10 @@ instance decodeJsonFBInput :: DecodeJson FBInput where
         key <- x .? "key"
         helptext <- x .? "helptext"
         pure $ LongText { label, key, helptext }
-      {--"Number" -> do--}
-        {--label <- x .? "label"--}
-        {--key <- x .? "key"--}
-        {--pure $ Number { label, key }--}
       _ -> Left $ "No case written to decode:\n" <> "  " <> type_ <> "\n"
     pure input
 
-instance encodeJsonFBInput :: EncodeJson FBInput where
+instance encodeJsonFormInput :: EncodeJson FBInput where
   encodeJson = case _ of
     ShortText st -> do
       "inputType" := "ShortText"
@@ -154,16 +99,11 @@ instance encodeJsonFBInput :: EncodeJson FBInput where
       ~> "key" := st.key
       ~> "helptext" := st.helptext
       ~> jsonEmptyObject
-    {--Number st -> do--}
-      {--"inputType" := "Number"--}
-      {--~> "label" := st.label--}
-      {--~> "key" := st.key--}
-      {--~> jsonEmptyObject--}
 
 handleInput
-  :: Component.State FBValidate FBInput FBRelation
+  :: Component.State FBValidate FormInput FBRelation
   -> InputRef
-  -> H.ComponentHTML (Component.Query FBValidate FBInput FBRelation)
+  -> H.ComponentHTML (Component.Query FBValidate FormInput FBRelation)
 handleInput st ref =
   let attr = HP.attr (HH.AttrName "data-inputref") (show $ unwrap ref)
       config = Map.lookup ref (_.inputs $ unwrap st.config)
@@ -181,7 +121,7 @@ handleInput st ref =
                 , HE.onValueInput $ HE.input $ Component.UpdateValue ref
                 , HE.onBlur $ HE.input_ $ Component.Blur ref
                 , HP.value $ fromMaybe "" $ Map.lookup ref st.form
-                ]  
+                ]
               ]
           LongText { label, helptext } ->
             FormField.field_
@@ -195,15 +135,15 @@ handleInput st ref =
                 , HE.onValueInput $ HE.input $ Component.UpdateValue ref
                 , HE.onBlur $ HE.input_ $ Component.Blur ref
                 , HP.value $ fromMaybe "" $ Map.lookup ref st.form
-                ]  
+                ]
               ]
         otherwise -> HH.div_ []
 
-data FBValidate 
+data FBValidate
   = Required
 
 instance eqFBValidate :: Eq FBValidate where
-  eq Required Required = true 
+  eq Required Required = true
 
 instance showFBValidate :: Show FBValidate where
   show Required = "Required"
@@ -213,7 +153,7 @@ instance decodeJsonFBValidate :: DecodeJson FBValidate where
     x <- decodeJson json
     type_ <- x .? "validationType"
     validate <- case type_ of
-      "Required" -> pure Required 
+      "Required" -> pure Required
       _ -> Left $ "No case written to decode:\n" <> "  " <> type_ <> "\n"
     pure validate
 
@@ -230,9 +170,9 @@ handleValidation v str = case v of
       then Left "Field is required"
       else Right str
 
-type FBFormConfig = FormConfig FBValidate FBInput FBRelation
+type FBFormConfig = FormConfig FBValidate FormInput FBRelation
 
-type FBInputConfig = InputConfig FBValidate FBInput FBRelation
+type FormInputConfig = InputConfig FBValidate FBInput FBRelation
 
 defaultFormConfig :: FBFormConfig
 defaultFormConfig = FormConfig
@@ -241,7 +181,7 @@ defaultFormConfig = FormConfig
   , supply: 0
   }
 
-fbInput :: FBFormConfig -> FBInput -> FBFormConfig
+fbInput :: FBFormConfig -> FormInput -> FBFormConfig
 fbInput (FormConfig f) inputType =
   wrap $ f { supply =  supply
            , inputs = Map.insert ref inputConfig f.inputs
@@ -251,14 +191,14 @@ fbInput (FormConfig f) inputType =
     ref = InputRef f.supply
     inputConfig = InputConfig { inputType, relations: [], validations: [] }
 
-updatefbInput :: FBFormConfig -> InputRef -> FBInputConfig -> FBFormConfig
+updatefbInput :: FBFormConfig -> InputRef -> FormInputConfig -> FBFormConfig
 updatefbInput (FormConfig f) ref inputConfig =
   FormConfig $ f { inputs = Map.insert ref inputConfig f.inputs }
 
-formBuilder
+component
   :: ∀ eff
    . H.Component HH.HTML Query Unit Message (Aff (Effects eff))
-formBuilder =
+component =
   H.parentComponent
     { initialState
     , render
@@ -269,8 +209,8 @@ formBuilder =
     initialState :: Input -> State
     initialState _ = { config: defaultFormConfig }
 
-    eval 
-      :: Query 
+    eval
+      :: Query
       ~> H.ParentDSL State Query ChildQuery ChildSlot Message (Aff (Effects eff))
     eval = case _ of
       Submit a -> do
@@ -287,13 +227,12 @@ formBuilder =
         state <- H.get
         H.modify _ { config = updatefbInput state.config ref i}
         pure a
-      
+
       UpdateHelptext ref (InputConfig inputConfig) i helptext a -> do
         let i' = updateKey i helptext
             inputConfig' = InputConfig (inputConfig { inputType = i' })
             updateKey (ShortText x) k = ShortText $ x { helptext = helptext }
             updateKey (LongText x) k = LongText $ x { helptext = helptext }
-            {--updateKey (Number x) k = Number $ x { key = k }--}
         eval $ UpdateInput ref inputConfig' a
 
       UpdateKey ref (InputConfig inputConfig) i key a -> do
@@ -301,7 +240,6 @@ formBuilder =
             inputConfig' = InputConfig (inputConfig { inputType = i' })
             updateKey (ShortText x) k = ShortText $ x { key = k }
             updateKey (LongText x) k = LongText $ x { key = k }
-            {--updateKey (Number x) k = Number $ x { key = k }--}
         eval $ UpdateInput ref inputConfig' a
 
       UpdateLabel ref (InputConfig inputConfig) i label a -> do
@@ -309,7 +247,6 @@ formBuilder =
             inputConfig' = InputConfig (inputConfig { inputType = i' })
             updateLabel (ShortText x) l = ShortText $ x { label = l }
             updateLabel (LongText x) l = LongText $ x { label = l }
-            {--updateLabel (Number x) l = Number $ x { label = l }--}
         eval $ UpdateInput ref inputConfig' a
 
       ToggleRequired ref (InputConfig inputConfig) a -> do
@@ -323,35 +260,29 @@ formBuilder =
         [ HP.class_ (HH.ClassName "flex bg-grey-lightest") ]
         [ HH.div
           [ HP.class_ (HH.ClassName "w-1/4 h-screen m-8") ]
-          [ mkInput 
+          [ mkInput
             { color: "bg-red"
             , icon: "fa fa-align-justify"
             , label: "Short Text"
             , type_: ShortText { label: "", key: "", helptext: "" }
             }
-          , mkInput 
+          , mkInput
             { color: "bg-green"
             , icon: "fa fa-align-justify"
             , label: "Long Text"
-            , type_: LongText { label: "", key: "", helptext: "" } 
+            , type_: LongText { label: "", key: "", helptext: "" }
             }
-          {--, mkInput --}
-            {--{ color: "bg-blue"--}
-            {--, icon: "fa fa-list-ol"--}
-            {--, label: "Number"--}
-            {--, type_: Number { label: "", key: "" } --}
-            {--}--}
           ]
         , HH.div
           [ HP.class_ (HH.ClassName "w-1/2 h-screen bg-grey-lightest") ]
           [ Button.buttonDark
             [ HE.onClick $ HE.input_ Submit ]
             [ HH.text "Submit" ]
-          , Card.card_ (renderInputs state.config) 
+          , Card.card_ (renderInputs state.config)
           ]
         , HH.div
           [ HP.class_ (HH.ClassName "w-1/4 h-screen bg-grey-lightest") ]
-          [ HH.slot' CP.cp1 unit (Component.component handleValidation handleInput handleRelation) (Left state.config) (const Nothing) 
+          [ HH.slot' CP.cp1 unit (Component.component handleValidation handleInput handleRelation) (Left state.config) (const Nothing)
           ]
         ]
       where
@@ -363,13 +294,12 @@ formBuilder =
             renderInputType k x = case x.inputType of
               ShortText l ->  renderShortText k l x
               LongText l -> renderLongText k l x
-              {--Number l -> renderNumber k l x--}
 
             renderShortText k l c@{ inputType, validations, relations } =
               HH.div
                 [ HP.class_ (HH.ClassName "m-8") ]
                 [ HH.div_
-                  [ renderIcon { color: "bg-red", icon: "fa fa-align-justify"} 
+                  [ renderIcon { color: "bg-red", icon: "fa fa-align-justify"}
                   , HH.span_ [ HH.text "Short Text" ]
                   ]
                 , FormField.field_
@@ -392,7 +322,7 @@ formBuilder =
                   [ Input.input
                     [ HP.value l.key
                     , HE.onValueInput $ HE.input $ UpdateKey k (InputConfig c) inputType
-                    ]  
+                    ]
                   ]
                 , FormField.field_
                   { helpText: Nothing
@@ -403,60 +333,7 @@ formBuilder =
                   [ Input.input
                     [ HP.value l.helptext
                     , HE.onValueInput $ HE.input $ UpdateHelptext k (InputConfig c) inputType
-                    ]  
-                  ]
-                , FormField.field_
-                  { helpText: Nothing
-                  , label: "Required"
-                  , valid: Nothing
-                  , inputId: ""
-                  }
-                  [ Toggle.toggle
-                    [ HP.checked (isRequired validations)
-                    , HE.onClick $ HE.input_ $ ToggleRequired k (InputConfig c)
                     ]
-                  ]
-                ]
-            
-            renderLongText k l c@{ inputType, validations, relations } =
-              HH.div
-                [ HP.class_ (HH.ClassName "m-8") ]
-                [ HH.div_
-                  [ renderIcon { color: "bg-green", icon: "fa fa-align-justify"} 
-                  , HH.span_ [ HH.text "Long Text" ]
-                  ]
-                , FormField.field_
-                  { helpText: Nothing
-                  , label: "Label"
-                  , valid: Nothing
-                  , inputId: ""
-                  }
-                  [ Input.input
-                    [ HP.value l.label 
-                    , HE.onValueInput $ HE.input $ UpdateLabel k (InputConfig c) inputType
-                    ]
-                  ]
-                , FormField.field_
-                  { helpText: Nothing
-                  , label: "Key"
-                  , valid: Nothing
-                  , inputId: ""
-                  }
-                  [ Input.input
-                    [ HP.value l.key
-                    , HE.onValueInput $ HE.input $ UpdateKey k (InputConfig c) inputType
-                    ]  
-                  ]
-                , FormField.field_
-                  { helpText: Nothing
-                  , label: "Helptext"
-                  , valid: Nothing
-                  , inputId: ""
-                  }
-                  [ Input.input
-                    [ HP.value l.helptext
-                    , HE.onValueInput $ HE.input $ UpdateHelptext k (InputConfig c) inputType
-                    ]  
                   ]
                 , FormField.field_
                   { helpText: Nothing
@@ -471,47 +348,58 @@ formBuilder =
                   ]
                 ]
 
-            {--renderNumber k l c@{ inputType, validations, relations } =--}
-              {--HH.div--}
-                {--[ HP.class_ (HH.ClassName "m-8") ]--}
-                {--[ HH.div_--}
-                  {--[ renderIcon { color: "bg-blue", icon: "fa fa-list-ol"} --}
-                  {--, HH.span_ [ HH.text "Number" ]--}
-                  {--]--}
-                {--, FormField.field_--}
-                  {--{ helpText: Nothing--}
-                  {--, label: "Key"--}
-                  {--, valid: Nothing--}
-                  {--, inputId: ""--}
-                  {--}--}
-                  {--[ Input.input--}
-                    {--[ HP.value l.key--}
-                    {--, HE.onValueInput $ HE.input $ UpdateKey k (InputConfig c) inputType--}
-                    {--]  --}
-                  {--]--}
-                {--, FormField.field_--}
-                  {--{ helpText: Nothing--}
-                  {--, label: "Label"--}
-                  {--, valid: Nothing--}
-                  {--, inputId: ""--}
-                  {--}--}
-                  {--[ Input.input--}
-                    {--[ HP.value l.label --}
-                    {--, HE.onValueInput $ HE.input $ UpdateLabel k (InputConfig c) inputType--}
-                    {--]  --}
-                  {--]--}
-                {--, FormField.field_--}
-                  {--{ helpText: Nothing--}
-                  {--, label: "Required"--}
-                  {--, valid: Nothing--}
-                  {--, inputId: ""--}
-                  {--}--}
-                  {--[ Toggle.toggle--}
-                    {--[ HP.checked (isRequired validations)--}
-                    {--, HE.onClick $ HE.input_ $ ToggleRequired k (InputConfig c)--}
-                    {--]--}
-                  {--]--}
-                {--]--}
+            renderLongText k l c@{ inputType, validations, relations } =
+              HH.div
+                [ HP.class_ (HH.ClassName "m-8") ]
+                [ HH.div_
+                  [ renderIcon { color: "bg-green", icon: "fa fa-align-justify"}
+                  , HH.span_ [ HH.text "Long Text" ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Label"
+                  , valid: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.label
+                    , HE.onValueInput $ HE.input $ UpdateLabel k (InputConfig c) inputType
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Key"
+                  , valid: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.key
+                    , HE.onValueInput $ HE.input $ UpdateKey k (InputConfig c) inputType
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Helptext"
+                  , valid: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.helptext
+                    , HE.onValueInput $ HE.input $ UpdateHelptext k (InputConfig c) inputType
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Required"
+                  , valid: Nothing
+                  , inputId: ""
+                  }
+                  [ Toggle.toggle
+                    [ HP.checked (isRequired validations)
+                    , HE.onClick $ HE.input_ $ ToggleRequired k (InputConfig c)
+                    ]
+                  ]
+                ]
 
         mkInput { color, icon, label, type_ } =
           HH.div
@@ -540,7 +428,7 @@ formBuilder =
 
 
 isRequired :: Array FBValidate -> Boolean
-isRequired xs = 
+isRequired xs =
   case (findIndex (\x -> x == Required) xs) of
     Just _ -> true
     Nothing -> false
@@ -549,5 +437,4 @@ foldrWithKey :: ∀ k a b. (k -> a -> b -> b) -> b -> Map k a -> b
 foldrWithKey f z =
   foldr (uncurry f) z
   <<< (toUnfoldable :: Map k a -> Array (Tuple k a))
-
 

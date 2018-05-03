@@ -1,4 +1,4 @@
-module Lynx.Component where
+module Lynx.Components.Form where
 
 import Prelude
 
@@ -19,15 +19,15 @@ import Data.Traversable (traverse_)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Lynx.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
 import Network.HTTP.Affjax (AJAX, get)
+import Lynx.Data.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
 
 data Query v i r a
   = UpdateValue InputRef String a
   | Blur InputRef a
   | Submit a
   | GetForm FormId a
-  | Initialize a 
+  | Initialize a
   | Receiver (Input v i r) a
 
 type Input v i r = Either (FormConfig v i r) FormId
@@ -65,8 +65,8 @@ component handleValidation handleInput handleRelations =
     }
   where
     initialState = case _ of
-      Left config -> 
-        { config 
+      Left config ->
+        { config
         , form: Map.empty
         , selectedForm: FormId 0
         , fromDB: false
@@ -91,7 +91,7 @@ component handleValidation handleInput handleRelations =
           else pure a
 
       Receiver (Left config) a -> do
-        H.modify _ { config = config } 
+        H.modify _ { config = config }
         pure a
       Receiver (Right _) a -> pure a
 
