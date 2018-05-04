@@ -2,11 +2,12 @@ module Lynx.Components.Form where
 
 import Prelude
 
-import Data.Argonaut (class DecodeJson, Json, decodeJson)
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as Console
+import Control.Monad.State.Class (class MonadState)
+import Data.Argonaut (class DecodeJson, Json, decodeJson)
 import Data.Array ((:))
 import Data.Array (fromFoldable) as Array
 import Data.Either (Either(..))
@@ -19,8 +20,8 @@ import Data.Traversable (traverse_)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Network.HTTP.Affjax (AJAX, get)
 import Lynx.Data.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
+import Network.HTTP.Affjax (AJAX, get)
 
 data Query v i r a
   = UpdateValue InputRef String a
@@ -29,6 +30,21 @@ data Query v i r a
   | GetForm FormId a
   | Initialize a
   | Receiver (Input v i r) a
+
+type ComponentConfig v i r eff =
+  { handleInput
+    :: State v i r
+    -> InputRef
+    -> H.ComponentHTML (Query v i r)
+  , handleValidate
+    :: v
+    -> String
+    -> Either String String
+  , handleRelate
+    :: r
+    -> InputRef
+    -> H.ComponentDSL (State v i r) (Query v i r) Message (Aff eff) Unit
+  }
 
 type Input v i r = Either (FormConfig v i r) FormId
 
@@ -46,15 +62,13 @@ type Effects eff =
   , ajax :: AJAX
   | eff )
 
-component :: ∀ eff v i r
+component :: ∀ v i r eff
    . DecodeJson v
   => DecodeJson i
   => DecodeJson r
-  => (v -> String -> Either String String)
-  -> (State v i r -> InputRef -> H.ComponentHTML (Query v i r))
-  -> (r -> InputRef -> H.ComponentDSL (State v i r) (Query v i r) Message (Aff (Effects eff)) Unit)
+  => ComponentConfig v i r (Effects eff)
   -> H.Component HH.HTML (Query v i r) (Input v i r) Message (Aff (Effects eff))
-component handleValidation handleInput handleRelations =
+component { handleInput, handleValidate, handleRelate } =
   H.lifecycleComponent
     { initialState
     , render
@@ -82,7 +96,9 @@ component handleValidation handleInput handleRelations =
         , fromDB: true
         }
 
-    eval :: (Query v i r) ~> H.ComponentDSL (State v i r) (Query v i r) Message (Aff (Effects eff))
+    eval
+      :: Query v i r
+      ~> H.ComponentDSL (State v i r) (Query v i r) Message (Aff (Effects eff))
     eval = case _ of
       Initialize a -> do
         state <- H.get
@@ -97,7 +113,7 @@ component handleValidation handleInput handleRelations =
 
       GetForm i a -> a <$ do
         (res :: Json) <- H.liftAff $
-           _.response <$> get ("http://localhost:3000/forms/" <> show 0)
+           _.response <$> get ("http://localhost:3000/forms/" <> show i)
         case decodeJson res of
           Left s -> H.liftAff $ Console.log s *> pure a
           Right form -> do
@@ -111,12 +127,12 @@ component handleValidation handleInput handleRelations =
         H.modify \st -> st { form = Map.insert ref str st.form }
 
       Blur ref a -> a <$ do
-        runRelations ref handleRelations
-        runValidations ref handleValidation
+        runRelations ref handleRelate
+        runValidations ref handleValidate
 
       Submit a -> a <$ do
         refs <- H.gets (Map.keys <<< _.form)
-        traverse_ (flip runRelations $ handleRelations) refs
+        traverse_ (flip runRelations $ handleRelate) refs
 
     render :: State v i r -> H.ComponentHTML (Query v i r)
     render st = HH.div_
@@ -148,11 +164,11 @@ runValidations ref validate = do
         pure unit
 
 -- Attempt to use the provided relations helper to run on form relations
-runRelations :: ∀ eff v i r m
-  . MonadAff (Effects eff) m
+runRelations :: ∀ v i r m
+  . MonadState (State v i r) m
  => InputRef
- -> (r -> InputRef -> H.ComponentDSL (State v i r) (Query v i r) Message m Unit)
- -> H.ComponentDSL (State v i r) (Query v i r) Message m Unit
+ -> (r -> InputRef -> m Unit)
+ -> m Unit
 runRelations ref runRelation = do
   st <- H.get
   case Map.lookup ref (_.inputs $ unwrap st.config) of

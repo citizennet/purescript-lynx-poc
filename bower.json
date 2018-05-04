@@ -18,7 +18,8 @@
     "purescript-maps": "^3.6.0",
     "purescript-newtype": "^2.0.0",
     "purescript-control": "^3.3.1",
-    "purescript-ocelot": "git@github.com:citizennet/purescript-ocelot.git#dev"
+    "purescript-ocelot": "git@github.com:citizennet/purescript-ocelot.git#dev",
+    "purescript-read": "^1.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^3.0.0",

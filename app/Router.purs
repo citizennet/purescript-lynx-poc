@@ -10,8 +10,6 @@ import Data.Either (Either(..))
 import Data.Foldable (oneOf)
 import Data.Maybe (Maybe(..))
 import Halogen as H
---  import Halogen.Component.ChildPath as CP
---  import Halogen.Data.Prism (type (\/), type (<\/>))
 import Halogen.HTML as HH
 import Lynx.Components.Form as Form
 import Lynx.Data.Graph (FormId(..))
@@ -26,6 +24,11 @@ data Route
   = Index
   | Form FormId
   | Builder FormId
+
+instance showRoute :: Show Route where
+  show Index = "Index"
+  show (Form id) = "Form: " <> show id
+  show (Builder id) = "Builder: " <> show id
 
 route :: Match Route
 route =
@@ -65,13 +68,18 @@ component =
     render :: State -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects e))
     render = case _ of
       Index ->
-        HH.div_ [ HH.text "You gotta choose /forms:id or /builder/:id" ]
+        HH.div_ [ HH.text "Try /#/forms/0 or /#/builder/0" ]
 
       Form formId ->
         -- Look up formId and load that configuration with handleX functions
         HH.slot
           unit
-          (Form.component Signup.handleValidation Signup.renderInput Signup.handleRelation)
+          ( Form.component
+            { handleValidate: Signup.handleValidation
+            , handleInput: Signup.renderInput
+            , handleRelate: Signup.handleRelation
+            }
+          )
           (Right formId)
           (const Nothing)
 
