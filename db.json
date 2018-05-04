@@ -1,63 +1,132 @@
 {
-  "forms":
-    [
-      { "id": 0
-      , "supply": 3
-      , "inputs":
-          [
-            [ 0
-            , { "relations": []
-              , "validations":
-                [
-                  { "validationType": "NonEmpty" }
-                ]
-              , "inputType":
-                { "inputType": "Text"
-                , "label": "Username"
-                }
+  "forms": [
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
               }
-            ]
-          , [ 1
-            , { "relations":
-                [
-                  { "ref": 2
-                  , "relationType": "MustEqual"
-                  }
-                ]
-              , "validations":
-                [
-                  { "from": 5
-                  , "to": 15
-                  , "validationType": "InRange"
-                  }
-                ]
-              , "inputType":
-                { "inputType": "Text"
-                , "label": "Password 1"
-                }
+            ],
+            "inputType": {
+              "inputAttrs": {
+                "helpText": "Name",
+                "label": "Name"
+              },
+              "inputType": "Text"
+            }
+          }
+        ],
+        [
+          1,
+          {
+            "relations": [],
+            "validations": [],
+            "inputType": {
+              "inputAttrs": {
+                "helpText": "Notes",
+                "label": "Notes"
+              },
+              "inputType": "Text"
+            }
+          }
+        ]
+      ],
+      "supply": 2,
+      "id": 1
+    },
+    {
+      "inputs": [
+        [
+          1,
+          {
+            "relations": [],
+            "validations": [],
+            "inputType": {
+              "inputAttrs": {
+                "helpText": "Notes",
+                "label": "Notes"
+              },
+              "inputType": "Text"
+            }
+          }
+        ],
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
               }
-            ]
-          , [ 2
-            , { "relations":
-                [
-                  { "ref": 1
-                  , "relationType": "Clear"
-                  }
-                ]
-              , "validations":
-                [
-                  { "from": 5
-                  , "to": 15
-                  , "validationType": "InRange"
-                  }
-                ]
-              , "inputType":
-                { "inputType": "Text"
-                , "label": "Password 2"
-                }
+            ],
+            "inputType": {
+              "inputAttrs": {
+                "helpText": "Name",
+                "label": "Name"
+              },
+              "inputType": "Text"
+            }
+          }
+        ],
+        [
+          2,
+          {
+            "relations": [],
+            "validations": [],
+            "inputType": {
+              "inputAttrs": {
+                "helpText": "Opt Name",
+                "label": "Opt Name"
+              },
+              "inputType": "Text"
+            }
+          }
+        ]
+      ],
+      "supply": 3,
+      "id": 2
+    },
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
               }
-            ]
-          ]
-      }
-    ]
+            ],
+            "inputType": {
+              "inputAttrs": {
+                "helpText": "Name",
+                "label": "Name"
+              },
+              "inputType": "Text"
+            }
+          }
+        ],
+        [
+          1,
+          {
+            "relations": [],
+            "validations": [],
+            "inputType": {
+              "inputAttrs": {
+                "helpText": "Foo",
+                "label": "Foo"
+              },
+              "inputType": "Text"
+            }
+          }
+        ]
+      ],
+      "supply": 2,
+      "id": 3
+    }
+  ]
 }
