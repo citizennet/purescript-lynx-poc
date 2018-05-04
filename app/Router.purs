@@ -2,19 +2,23 @@ module App.Router where
 
 import Prelude
 
-import App.Data.Input.Handler (handleInput) as IH
-import App.Data.Input.Type (Input) as I
-import App.Data.Relate.Handler (handleRelate) as RH
+import App.Components.Builder as Builder
+import App.Data.Input.Handler as IH
+import App.Data.Input.Type as I
+import App.Data.Relate.Handler as RH
 import App.Data.Relate.Type as R
+import App.Data.Validate.Handler as VH
 import App.Data.Validate.Type as V
-import App.Data.Validate.Handler  as VH
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.Console (CONSOLE)
 import DOM (DOM)
 import Data.Either (Either(..))
+import Data.Either.Nested (Either2)
 import Data.Foldable (oneOf)
+import Data.Functor.Coproduct.Nested (Coproduct2)
 import Data.Maybe (Maybe(..))
 import Halogen as H
+import Halogen.Component.ChildPath (cp1, cp2) as CP
 import Halogen.HTML as HH
 import Lynx.Components.Form as Form
 import Lynx.Data.Graph (FormId(..))
@@ -53,11 +57,12 @@ data Query a
 type Input = Route
 type State = Route
 
-type ChildQuery
-  = Form.Query V.Validate I.Input R.Relate
+type ChildQuery = Coproduct2
+  (Form.Query V.Validate I.AppInput R.Relate)
+  Builder.Query
 
-type ChildSlot
-  = Unit
+type ChildSlot = Either2 Unit Unit
+
 
 type Effects eff = ( dom :: DOM, ajax :: AJAX, console :: CONSOLE | eff )
 
@@ -79,7 +84,8 @@ component =
 
       Form formId ->
         -- Look up formId and load that configuration with handleX functions
-        HH.slot
+        HH.slot'
+          CP.cp1
           unit
           ( Form.component
             { handleValidate: VH.handleValidate
@@ -90,7 +96,8 @@ component =
           (Right formId)
           (const Nothing)
 
-      Builder formId -> render $ Form formId
+      Builder formId ->
+        HH.slot' CP.cp2 unit Builder.component formId (const Nothing)
 
     eval :: Query ~> H.ParentDSL State Query ChildQuery ChildSlot Void (Aff (Effects e))
     eval = case _ of

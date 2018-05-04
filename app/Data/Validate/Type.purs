@@ -14,6 +14,9 @@ import Data.String.Read (class Read, read)
 data Validate
   = Required
 
+instance eqValidate :: Eq Validate where
+  eq Required Required = true
+
 instance showValidate :: Show Validate where
   show Required = "Required"
 
