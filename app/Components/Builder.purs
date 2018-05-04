@@ -1,32 +1,22 @@
-module Lynx.Components.Builder where
+module App.Components.Builder where
 
 import Prelude
 
 import Control.Monad.Aff.Console (CONSOLE)
-import Data.Argonaut
-  ( class DecodeJson
-  , class EncodeJson
-  , decodeJson
-  , jsonEmptyObject
-  , (.?)
-  , (:=)
-  , (~>)
-  )
-import Data.Either (Either(..))
 import Network.HTTP.Affjax (AJAX)
 import Lynx.Components.Form as Component
 
---  data Query a
---    = AddInput FormInput a
---    | UpdateInput InputRef FormInputConfig a
---    | UpdateLabel InputRef FormInputConfig FBInput String a
---    | UpdateKey InputRef FormInputConfig FBInput String a
---    | UpdateHelptext InputRef FormInputConfig FBInput String a
---    | ToggleRequired InputRef FormInputConfig a
---    | Submit a
+data Query a
+  --  = AddInput Input a
+  --  | UpdateInput InputRef FormInputConfig a
+  --  | UpdateLabel InputRef FormInputConfig FBInput String a
+  --  | UpdateKey InputRef FormInputConfig FBInput String a
+  --  | UpdateHelptext InputRef FormInputConfig FBInput String a
+  --  | ToggleRequired InputRef FormInputConfig a
+  = Submit a
 
---  type State =
---    { config :: FBFormConfig }
+type State =
+  { config :: String }
 
 type Input = Unit
 
@@ -40,104 +30,6 @@ type Effects eff =
 
 type ChildQuery v i r = Component.Query v i r
 type ChildSlot = Unit
-
-data FormInput
-  = ShortText { label :: String, key :: String, helptext :: String }
-  | LongText { label :: String, key :: String, helptext :: String }
-
-instance decodeJsonFormInput :: DecodeJson FormInput where
-  decodeJson json = do
-    x <- decodeJson json
-    type_ <- x .? "inputType"
-    input <- case type_ of
-      "ShortText" -> do
-        label <- x .? "label"
-        key <- x .? "key"
-        helptext <- x .? "helptext"
-        pure $ ShortText { label, key, helptext }
-      "LongText" -> do
-        label <- x .? "label"
-        key <- x .? "key"
-        helptext <- x .? "helptext"
-        pure $ LongText { label, key, helptext }
-      _ -> Left $ "No case written to decode:\n" <> "  " <> type_ <> "\n"
-    pure input
-
-instance encodeJsonFormInput :: EncodeJson FormInput where
-  encodeJson = case _ of
-    ShortText st -> do
-      "inputType" := "ShortText"
-      ~> "label" := st.label
-      ~> "key" := st.key
-      ~> "helptext" := st.helptext
-      ~> jsonEmptyObject
-    LongText st -> do
-      "inputType" := "LongText"
-      ~> "label" := st.label
-      ~> "key" := st.key
-      ~> "helptext" := st.helptext
-      ~> jsonEmptyObject
-
---  handleInput
---    :: Component.State v i r
---    -> InputRef
---    -> H.ComponentHTML (Component.Query v i FBRelation)
---  handleInput st ref =
---    let attr = HP.attr (HH.AttrName "data-inputref") (show $ unwrap ref)
---        config = Map.lookup ref (_.inputs $ unwrap st.config)
---     in case config of
---          Just (InputConfig { inputType }) -> case inputType of
---            ShortText { label, helptext } ->
---              FormField.field_
---                { helpText: Just helptext
---                , label
---                , valid: Nothing
---                , inputId: (show <<< unwrap) ref
---                }
---                [ Input.input
---                  [ attr
---                  , HE.onValueInput $ HE.input $ Component.UpdateValue ref
---                  , HE.onBlur $ HE.input_ $ Component.Blur ref
---                  , HP.value $ fromMaybe "" $ Map.lookup ref st.form
---                  ]
---                ]
---            LongText { label, helptext } ->
---              FormField.field_
---                { helpText: Just helptext
---                , label
---                , valid: Nothing
---                , inputId: (show <<< unwrap) ref
---                }
---                [ Input.input
---                  [ attr
---                  , HE.onValueInput $ HE.input $ Component.UpdateValue ref
---                  , HE.onBlur $ HE.input_ $ Component.Blur ref
---                  , HP.value $ fromMaybe "" $ Map.lookup ref st.form
---                  ]
---                ]
---          otherwise -> HH.div_ []
-
-
---  defaultFormConfig :: FBFormConfig
---  defaultFormConfig = FormConfig
---    { id: (FormId 0)
---    , inputs: Map.empty
---    , supply: 0
---    }
-
---  fbInput :: FBFormConfig -> FormInput -> FBFormConfig
---  fbInput (FormConfig f) inputType =
---    wrap $ f { supply =  supply
---             , inputs = Map.insert ref inputConfig f.inputs
---             }
---    where
---      supply = f.supply + 1
---      ref = InputRef f.supply
---      inputConfig = InputConfig { inputType, relations: [], validations: [] }
---
---  updatefbInput :: FBFormConfig -> InputRef -> FormInputConfig -> FBFormConfig
---  updatefbInput (FormConfig f) ref inputConfig =
---    FormConfig $ f { inputs = Map.insert ref inputConfig f.inputs }
 
 --  component
 --    :: ∀ eff
@@ -381,4 +273,3 @@ instance encodeJsonFormInput :: EncodeJson FormInput where
 --  foldrWithKey f z =
 --    foldr (uncurry f) z
 --    <<< (toUnfoldable :: Map k a -> Array (Tuple k a))
---
