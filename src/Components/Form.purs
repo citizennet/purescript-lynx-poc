@@ -136,7 +136,9 @@ component { handleInput, handleValidate, handleRelate } =
 
     render :: State v i r -> H.ComponentHTML (Query v i r)
     render st = HH.div_
-      [ HH.div_ $ Array.fromFoldable $ (handleInput st) <$> Map.keys (_.inputs $ unwrap st.config)
+      [ HH.div_
+        $ Array.fromFoldable
+        $ handleInput st <$> Map.keys (_.inputs $ unwrap st.config)
       , HH.button
           [ HE.onClick (HE.input_ Submit) ]
           [ HH.text "Submit" ]
@@ -157,9 +159,10 @@ runValidations ref validate = do
       Just (InputConfig config) -> do
         let successive (Left str) arr = str : arr
             successive _ arr = arr
-            res = case foldr (\v arr -> successive (validate v val) arr) [] config.validations of
-              [] -> Right $ "Valid: " <> val
-              arr -> Left arr
+            res =
+              case foldr (\v arr -> successive (validate v val) arr) [] config.validations of
+                [] -> Right $ "Valid: " <> val
+                arr -> Left arr
         _ <- H.liftAff $ Console.logShow res
         pure unit
 

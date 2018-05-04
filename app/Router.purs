@@ -2,7 +2,12 @@ module App.Router where
 
 import Prelude
 
-import App.Forms.Signup as Signup
+import App.Data.Input.Handler (handleInput) as IH
+import App.Data.Input.Type (Input) as I
+import App.Data.Relate.Handler (handleRelate) as RH
+import App.Data.Relate.Type as R
+import App.Data.Validate.Type as V
+import App.Data.Validate.Handler  as VH
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.Console (CONSOLE)
 import DOM (DOM)
@@ -49,7 +54,7 @@ type Input = Route
 type State = Route
 
 type ChildQuery
-  = Form.Query Signup.SignupValidate Signup.SignupInput Signup.SignupRelation
+  = Form.Query V.Validate I.Input R.Relate
 
 type ChildSlot
   = Unit
@@ -65,7 +70,9 @@ component =
   , receiver: const Nothing
   }
   where
-    render :: State -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects e))
+    render
+      :: State
+      -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects e))
     render = case _ of
       Index ->
         HH.div_ [ HH.text "Try /#/forms/0 or /#/builder/0" ]
@@ -75,9 +82,9 @@ component =
         HH.slot
           unit
           ( Form.component
-            { handleValidate: Signup.handleValidation
-            , handleInput: Signup.renderInput
-            , handleRelate: Signup.handleRelation
+            { handleValidate: VH.handleValidate
+            , handleInput: IH.handleInput
+            , handleRelate: RH.handleRelate
             }
           )
           (Right formId)

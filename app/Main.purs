@@ -4,7 +4,6 @@ import Prelude
 
 import App.Router as R
 import Control.Monad.Aff (launchAff)
-import Control.Monad.Aff.Console (log)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Halogen.Aff as HA
