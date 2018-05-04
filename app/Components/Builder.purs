@@ -2,36 +2,41 @@ module App.Components.Builder where
 
 import Prelude
 
-import Debug.Trace (spy)
-import Control.Monad.Aff.Console (CONSOLE)
-import Network.HTTP.Affjax (AJAX)
-import Data.Newtype (wrap)
-import Data.Array (elem, filter, snoc, (:))
-import Data.Tuple (Tuple, uncurry)
-import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Map (Map)
-import Data.Map as Map
-import Data.Foldable (foldr)
-import Halogen as H
-import Halogen.HTML as HH
-import Halogen.HTML.Properties as HP
-import Control.Monad.Aff (Aff)
 import App.Data.Input.Handler (handleInput) as I
 import App.Data.Input.Type (AppInput, Attrs(Attrs), Input(Number, TextArea, Text)) as I
-import App.Data.Validate.Handler (handleValidate) as V
-import App.Data.Validate.Type (Validate(..)) as V
 import App.Data.Relate.Handler (handleRelate) as R
 import App.Data.Relate.Type (Relate) as R
+import App.Data.Validate.Handler (handleValidate) as V
+import App.Data.Validate.Type (Validate(..)) as V
+import Control.Monad.Aff (Aff)
+import Control.Monad.Aff.Console (CONSOLE, error)
+import DOM (DOM)
+import DOM.HTML (window)
+import DOM.HTML.Location (setHash)
+import DOM.HTML.Window (location)
+import Data.Argonaut (decodeJson, encodeJson)
+import Data.Array (elem, filter, snoc, (:))
+import Data.Either (Either(..))
+import Data.Foldable (foldr)
+import Data.Map (Map)
+import Data.Map as Map
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Newtype (unwrap, wrap)
+import Data.Tuple (Tuple, uncurry)
+import Debug.Trace (spy)
+import Halogen as H
+import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Ocelot.HTML.Properties (css)
-import Ocelot.Block.FormField as FormField
-import Ocelot.Block.Button as Button
-import Ocelot.Block.Card as Card
-import Ocelot.Block.Toggle as Toggle
-import Ocelot.Block.Input as Input
+import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Component
 import Lynx.Data.Graph (FormConfig(..), FormId, InputConfig(..), InputRef(..))
+import Network.HTTP.Affjax (AJAX, post)
+import Ocelot.Block.Button as Button
+import Ocelot.Block.Card as Card
+import Ocelot.Block.FormField as FormField
+import Ocelot.Block.Input as Input
+import Ocelot.Block.Toggle as Toggle
+import Ocelot.HTML.Properties (css)
 
 data Query a
   = Create I.AppInput a
@@ -57,6 +62,7 @@ type Message = Void
 type Effects eff =
   ( ajax :: AJAX
   , console :: CONSOLE
+  , dom :: DOM
   | eff
   )
 
@@ -103,9 +109,17 @@ component =
 
       Submit a -> do
         -- Submit the form to the backend DB
-        st <- H.get
-        _ <- pure $ spy st
+        state <- H.get
+        _ <- submit state
         pure a
+      where
+        submit state = do
+          config <- H.liftAff (saveFormConfig state.config)
+          case config of
+            Left err -> do
+              H.liftAff (error err)
+            Right (FormConfig { id }) -> do
+              H.liftEff $ setHash ("#/forms/" <> (show <<< unwrap) id) =<< location =<< window
 
     render :: State -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects eff))
     render state =
@@ -304,3 +318,9 @@ foldrWithKey :: ∀ k a b. (k -> a -> b -> b) -> b -> Map k a -> b
 foldrWithKey f z =
   foldr (uncurry f) z
   <<< (Map.toUnfoldable :: Map k a -> Array (Tuple k a))
+
+saveFormConfig :: ∀ eff. FormConfig' -> Aff (Effects eff) (Either String FormConfig')
+saveFormConfig config =
+  decodeJson <<< _.response <$> post uri (encodeJson config)
+  where
+    uri = "http://localhost:3000/forms"
