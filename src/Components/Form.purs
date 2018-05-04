@@ -113,7 +113,7 @@ component { handleInput, handleValidate, handleRelate } =
 
       GetForm i a -> a <$ do
         (res :: Json) <- H.liftAff $
-           _.response <$> get ("http://localhost:3000/forms/" <> show i)
+           _.response <$> get ("http://localhost:3000/forms/" <> (show $ unwrap i))
         case decodeJson res of
           Left s -> H.liftAff $ Console.log s *> pure a
           Right form -> do
