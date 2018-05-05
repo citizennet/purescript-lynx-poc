@@ -22,15 +22,15 @@ import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap, wrap)
+import Data.Traversable (traverse_)
 import Data.Tuple (Tuple, uncurry)
-import Debug.Trace (spy)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Component
 import Lynx.Data.Graph (FormConfig(..), FormId, InputConfig(..), InputRef(..))
-import Network.HTTP.Affjax (AJAX, post)
+import Network.HTTP.Affjax (AJAX, get, post)
 import Ocelot.Block.Button as Button
 import Ocelot.Block.Card as Card
 import Ocelot.Block.FormField as FormField
@@ -40,6 +40,7 @@ import Ocelot.HTML.Properties (css)
 
 data Query a
   = Create I.AppInput a
+  | Initialize a
   | UpdateAttrs InputRef AttrField a
   | UpdateValidate InputRef (Action V.Validate) a
   | Submit a
@@ -73,11 +74,13 @@ component
   :: ∀ eff
    . H.Component HH.HTML Query Input Message (Aff (Effects eff))
 component =
-  H.parentComponent
+  H.lifecycleParentComponent
     { initialState
     , render
     , eval
     , receiver: const Nothing
+    , initializer: Just $ H.action Initialize
+    , finalizer: Nothing
     }
   where
     initialState :: Input -> State
@@ -87,6 +90,13 @@ component =
       :: Query
       ~> H.ParentDSL State Query ChildQuery ChildSlot Message (Aff (Effects eff))
     eval = case _ of
+      -- Load the existing form config, if it exists; otherwise, keep the blank config.
+      Initialize a -> do
+        formId <- H.gets (_.id <<< unwrap <<< _.config)
+        res <- H.liftAff $ getFormConfig formId
+        traverse_ (\config -> H.put { config }) res
+        pure a
+
       Create input a -> do
          H.modify \st -> st { config = makeInput st.config input }
          pure a
@@ -318,6 +328,10 @@ foldrWithKey :: ∀ k a b. (k -> a -> b -> b) -> b -> Map k a -> b
 foldrWithKey f z =
   foldr (uncurry f) z
   <<< (Map.toUnfoldable :: Map k a -> Array (Tuple k a))
+
+getFormConfig :: ∀ eff. FormId -> Aff (Effects eff) (Either String FormConfig')
+getFormConfig formId =
+  decodeJson <<< _.response <$> get ("http://localhost:3000/forms/" <> (show <<< unwrap) formId)
 
 saveFormConfig :: ∀ eff. FormConfig' -> Aff (Effects eff) (Either String FormConfig')
 saveFormConfig config =

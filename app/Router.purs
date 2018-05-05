@@ -2,6 +2,7 @@ module App.Router where
 
 import Prelude
 
+import App.Components.Home as Home
 import App.Components.Builder as Builder
 import App.Data.Input.Handler as IH
 import App.Data.Input.Type as I
@@ -13,12 +14,12 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.Console (CONSOLE)
 import DOM (DOM)
 import Data.Either (Either(..))
-import Data.Either.Nested (Either2)
+import Data.Either.Nested (Either3)
 import Data.Foldable (oneOf)
-import Data.Functor.Coproduct.Nested (Coproduct2)
+import Data.Functor.Coproduct.Nested (Coproduct3)
 import Data.Maybe (Maybe(..))
 import Halogen as H
-import Halogen.Component.ChildPath (cp1, cp2) as CP
+import Halogen.Component.ChildPath as CP
 import Halogen.HTML as HH
 import Lynx.Components.Form as Form
 import Lynx.Data.Graph (FormId(..))
@@ -57,11 +58,12 @@ data Query a
 type Input = Route
 type State = Route
 
-type ChildQuery = Coproduct2
+type ChildQuery = Coproduct3
   (Form.Query V.Validate I.AppInput R.Relate)
   Builder.Query
+  Home.Query
 
-type ChildSlot = Either2 Unit Unit
+type ChildSlot = Either3 Unit Unit Unit
 
 
 type Effects eff = ( dom :: DOM, ajax :: AJAX, console :: CONSOLE | eff )
@@ -80,7 +82,7 @@ component =
       -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects e))
     render = case _ of
       Index ->
-        HH.div_ [ HH.text "Try /#/forms/0 or /#/builder/0" ]
+        HH.slot' CP.cp3 unit Home.component unit (const Nothing)
 
       Form formId ->
         -- Look up formId and load that configuration with handleX functions
