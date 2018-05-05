@@ -6,20 +6,25 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "clean": "rm -rf bower_components node_modules output && rm *.log *.lock",
+    "clean": "rm -rf bower_components node_modules output",
     "postinstall": "bower i --silent",
     "start": "yarn build && npm-run-all --parallel bundle serve",
     "build": "pulp build -I app",
+    "watch": "pulp watch -I app",
     "bundle": "parcel app/index.html",
     "serve": "json-server --watch db.json"
   },
   "devDependencies": {
+    "@fortawesome/fontawesome-free-webfonts": "^1.0.6",
     "npm-run-all": "^4.1.2",
     "parcel-bundler": "^1.7.0",
     "pulp": "^12.0.1",
     "purescript": "^0.11.6"
   },
   "dependencies": {
-    "json-server": "^0.12.1"
+    "add": "^2.0.6",
+    "big-integer": "^1.6.28",
+    "json-server": "^0.12.1",
+    "yarn": "^1.6.0"
   }
 }

@@ -2,13 +2,18 @@ module Main where
 
 import Prelude
 
+import App.Router as R
+import Control.Monad.Aff (launchAff)
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Class (liftEff)
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
-import Lynx.Component as Component
-import App.Forms.Signup as Signup
+import Routing.Hash (matches)
 
-main :: ∀ eff. Eff (HA.HalogenEffects (Component.Effects eff)) Unit
+main :: ∀ eff. Eff (HA.HalogenEffects (R.Effects eff)) Unit
 main = HA.runHalogenAff do
   body <- HA.awaitBody
-  runUI (Component.component Signup.handleValidation Signup.renderInput Signup.handleRelation) unit body
+  driver <- runUI R.component R.Index body
+  liftEff $ matches R.route $ \_ new -> do
+    _ <- launchAff $ driver.query $ R.Navigate new unit
+    pure unit
