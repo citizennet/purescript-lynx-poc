@@ -127,6 +127,7 @@ component { handleInput, handleValidate, handleRelate } =
         H.modify \st -> st { form = Map.insert ref str st.form }
 
       Blur ref a -> a <$ do
+        H.liftAff $ Console.log $ "Blurred with ref " <> show ref <> "."
         runRelations ref handleRelate
         runValidations ref handleValidate
 
@@ -153,9 +154,13 @@ runValidations :: ∀ eff v i r m
 runValidations ref validate = do
   st <- H.get
   case Map.lookup ref st.form of
-    Nothing -> pure unit
+    Nothing -> do
+       H.liftAff $ Console.log $ "Could not find ref " <> show ref <> " in form."
+       pure unit
     Just val -> case Map.lookup ref (_.inputs $ unwrap st.config) of
-      Nothing -> pure unit
+      Nothing -> do
+         H.liftAff $ Console.log $ "Could not find ref " <> show ref <> " in config."
+         pure unit
       Just (InputConfig config) -> do
         let successive (Left str) arr = str : arr
             successive _ arr = arr
@@ -175,7 +180,8 @@ runRelations :: ∀ v i r m
 runRelations ref runRelation = do
   st <- H.get
   case Map.lookup ref (_.inputs $ unwrap st.config) of
-    Nothing -> pure unit
+    Nothing ->
+       pure unit
     Just (InputConfig config) -> do
       traverse_ (flip runRelation $ ref) config.relations
       pure unit

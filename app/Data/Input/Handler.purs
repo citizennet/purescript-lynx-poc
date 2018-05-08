@@ -2,13 +2,21 @@ module App.Data.Input.Handler where
 
 import Prelude
 
-import App.Data.Input.Type (AppInput, Attrs(..), Input(..), InputOptions(..), MyItem(..), OptionItems(..))
+import App.Data.Input.Type
+  ( AppInput
+  , Attrs(..)
+  , Input(..)
+  , InputOptions(..)
+  , MyItem(..)
+  , OptionItems(..)
+  )
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Halogen as H
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Form
 import Lynx.Data.Graph (InputRef)
@@ -16,12 +24,13 @@ import Ocelot.Block.FormField as FormField
 import Ocelot.Block.Input as Input
 import Ocelot.Block.Radio (radio_) as Radio
 
-
 optionItemToStr :: OptionItems -> String
 optionItemToStr = case _ of
   TextItem s -> s
   CustomItem (MyItem s) -> s
 
+-- Remember that this is the render function being passed in, so
+-- we have to set the blur events we want to trigger.
 handleInput :: ∀ v r
  . Form.State v AppInput r
 -> InputRef
@@ -43,6 +52,7 @@ handleInput st ref = fromMaybe (HH.div_ [])
         [ Input.input
           [ HP.attr (HH.AttrName "data-inputref") refStr
           , HP.value $ fromMaybe "" $ Map.lookup ref st.form
+          , HE.onBlur $ HE.input_ $ Form.Blur ref
           ]
         ]
 
@@ -60,7 +70,9 @@ handleInput st ref = fromMaybe (HH.div_ [])
           [ HH.div_ $
               arr # mapWithIndex \i v ->
                 Radio.radio_
-                  [ HP.name refStr, HP.checked (if i == 0 then true else false) ]
+                  [ HP.name refStr, HP.checked (if i == 0 then true else false)
+                  , HE.onChange $ HE.input_ $ Form.Blur ref
+                  ]
                   [ HH.text $ optionItemToStr v ]
           ]
 

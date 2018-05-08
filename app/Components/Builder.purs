@@ -181,6 +181,12 @@ component =
             , type_: I.TextArea $ I.Attrs { label: "", helpText: Just "" }
             }
           , mkInput
+            { color: "bg-blue"
+            , icon: "fa fa-align-justify"
+            , label: "Number"
+            , type_: I.Number $ I.Attrs { label: "", helpText: Just "" }
+            }
+          , mkInput
             { color: "bg-yellow"
             , icon: "fa fa-align-justify"
             , label: "Options (Radio)"
@@ -218,7 +224,7 @@ component =
             renderInputType k x = case x.inputType of
               I.Text (I.Attrs l) ->  renderText k l x
               I.TextArea (I.Attrs l) -> renderTextArea k l x
-              I.Number (I.Attrs l) -> renderText k l x
+              I.Number (I.Attrs l) -> renderNumber k l x
               I.Options (I.Attrs l) opts -> renderOptions k l x opts
 
             renderText k l c@{ inputType, validations, relations } =
@@ -269,6 +275,48 @@ component =
                 [ HH.div_
                   [ renderIcon { color: "bg-green", icon: "fa fa-align-justify"}
                   , HH.span_ [ HH.text "Long Text" ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Label"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< Label
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Helptext"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value $ fromMaybe "" l.helpText
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpText <<< Just
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Required"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Toggle.toggle
+                    [ HP.checked (elem V.Required validations)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
+                    ]
+                  ]
+                ]
+
+            renderNumber k l c@{ inputType, validations, relations } =
+              HH.div
+                [ css "m-8" ]
+                [ HH.div_
+                  [ renderIcon { color: "bg-blue", icon: "fa fa-align-justify" }
+                  , HH.span_ [ HH.text "Number" ]
                   ]
                 , FormField.field_
                   { helpText: Nothing
@@ -413,7 +461,9 @@ makeInput (FormConfig config) inputType =
   where
     newSupply = config.supply + 1
     newRef = InputRef config.supply
-    newInput = InputConfig { inputType, relations: [], validations: [] }
+    newInput = InputConfig $ case inputType of
+      I.Number _ -> { inputType, relations: [], validations: [ V.IsNumber ] }
+      otherwise  -> { inputType, relations: [], validations: [] }
 
 updateInput :: FormConfig' -> InputRef -> (InputConfig' -> InputConfig') -> FormConfig'
 updateInput (FormConfig config) ref f =
