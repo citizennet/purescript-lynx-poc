@@ -5,11 +5,14 @@ import Prelude
 import App.Data.Input.Type
   ( AppInput
   , Attrs(..)
+  , FormInput(..)
   , Input(..)
   , InputOptions(..)
   , MyItem(..)
   , OptionItems(..)
   )
+import Data.Array (head)
+import Data.Either (Either(..), either)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -42,7 +45,7 @@ handleInput st ref = fromMaybe (HH.div_ [])
     refStr = show <<< unwrap $ ref
 
     renderInput = case _ of
-      Text (Attrs { helpText, label }) ->
+      Text (Attrs { helpText, label }) (FormInput { input, result, validate }) ->
         FormField.field_
         { helpText
         , label
@@ -51,21 +54,36 @@ handleInput st ref = fromMaybe (HH.div_ [])
         }
         [ Input.input
           [ HP.attr (HH.AttrName "data-inputref") refStr
-          , HP.value $ fromMaybe "" $ Map.lookup ref st.form
+          , HP.value input
           , HE.onBlur $ HE.input_ $ Form.Blur ref
           ]
         ]
 
-      TextArea attrs -> renderInput $ Text attrs
-      Number attrs -> renderInput $ Text attrs
+      TextArea attrs contents -> renderInput $ Text attrs contents
 
-      Options attrs@(Attrs { helpText, label }) inputOpts -> case inputOpts of
+      Number (Attrs { helpText, label }) (FormInput { input, result, validate }) ->
+        FormField.field_
+        { helpText
+        , label
+        , error: either head (const Nothing) result
+        , inputId: refStr
+        }
+        [ Input.input
+          [ HP.attr (HH.AttrName "data-inputref") refStr
+          , HP.value input
+          , HE.onBlur $ HE.input_ $ Form.Blur ref
+          ]
+        ]
+
+      Options
+        attrs@(Attrs { helpText, label })
+        (FormInput { input, result, validate }) -> case input of
         Radio arr ->
           FormField.fieldset_
           { label
           , helpText
           , inputId: refStr
-          , error: Nothing
+          , error: either head (const Nothing) result
           }
           [ HH.div_ $
               arr # mapWithIndex \i v ->
@@ -76,5 +94,7 @@ handleInput st ref = fromMaybe (HH.div_ [])
                   [ HH.text $ optionItemToStr v ]
           ]
 
-        Dropdown arr -> renderInput $ Options attrs (Radio arr)
-        Checkbox arr -> renderInput $ Options attrs (Radio arr)
+        Dropdown arr -> renderInput
+          $ Options attrs (FormInput { input: Radio arr, result: Left [], validate: true })
+        Checkbox arr -> renderInput
+          $ Options attrs (FormInput { input: Radio arr, result: Left [], validate: true })

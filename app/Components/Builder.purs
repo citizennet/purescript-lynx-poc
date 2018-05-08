@@ -2,10 +2,8 @@ module App.Components.Builder where
 
 import Prelude
 
-import App.Data.Input.Handler (handleInput) as I
-import App.Data.Input.Handler (optionItemToStr)
-import App.Data.Input.Type (AppInput, Attrs(Attrs), Input(..), InputOptions(..)) as I
-import App.Data.Input.Type (InputOptions(..), OptionItems(..))
+import App.Data.Input.Handler (handleInput, optionItemToStr)
+import App.Data.Input.Type as I
 import App.Data.Relate.Handler (handleRelate) as R
 import App.Data.Relate.Type (Relate) as R
 import App.Data.Validate.Handler (handleValidate) as V
@@ -164,6 +162,9 @@ component =
 
     render :: State -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects eff))
     render state =
+      let stringInput = I.FormInput { input: "", result: Left [], validate: false }
+          numberInput = I.FormInput { input: "", result: Left [], validate: false }
+       in
       HH.div
         [ css "flex bg-grey-lightest" ]
         [ HH.div
@@ -172,19 +173,19 @@ component =
             { color: "bg-red"
             , icon: "fa fa-align-justify"
             , label: "Text"
-            , type_: I.Text $ I.Attrs { label: "", helpText: Just "" }
+            , type_: I.Text (I.Attrs { label: "", helpText: Just "" }) stringInput
             }
           , mkInput
             { color: "bg-green"
             , icon: "fa fa-align-justify"
             , label: "Long Text"
-            , type_: I.TextArea $ I.Attrs { label: "", helpText: Just "" }
+            , type_: I.TextArea (I.Attrs { label: "", helpText: Just "" }) stringInput
             }
           , mkInput
             { color: "bg-blue"
             , icon: "fa fa-align-justify"
             , label: "Number"
-            , type_: I.Number $ I.Attrs { label: "", helpText: Just "" }
+            , type_: I.Number (I.Attrs { label: "", helpText: Just "" }) numberInput
             }
           , mkInput
             { color: "bg-yellow"
@@ -192,7 +193,10 @@ component =
             , label: "Options (Radio)"
             , type_: I.Options
                 (I.Attrs { label: "", helpText: Just "" })
-                (Radio [ ])
+                (I.FormInput { input: I.Radio [ ]
+                             , result: Left []
+                             , validate: false }
+                )
             }
           ]
         , HH.div
@@ -207,7 +211,7 @@ component =
           [ HH.slot
               unit
               (Component.component
-                { handleInput: I.handleInput
+                { handleInput: handleInput
                 , handleValidate: V.handleValidate
                 , handleRelate: R.handleRelate
                 })
@@ -222,10 +226,14 @@ component =
             r k (InputConfig x) acc = snoc acc (renderInputType k x)
 
             renderInputType k x = case x.inputType of
-              I.Text (I.Attrs l) ->  renderText k l x
-              I.TextArea (I.Attrs l) -> renderTextArea k l x
-              I.Number (I.Attrs l) -> renderNumber k l x
-              I.Options (I.Attrs l) opts -> renderOptions k l x opts
+              I.Text (I.Attrs l) _
+                -> renderText k l x
+              I.TextArea (I.Attrs l) _
+                -> renderTextArea k l x
+              I.Number (I.Attrs l) _
+                -> renderNumber k l x
+              I.Options (I.Attrs l) (I.FormInput { input })
+                -> renderOptions k l x input
 
             renderText k l c@{ inputType, validations, relations } =
               HH.div
@@ -409,9 +417,9 @@ component =
                               [ HH.text "Remove" ]
                             ]
                        in case opts of
-                         Radio arr -> f arr
-                         Dropdown arr -> f arr
-                         Checkbox arr -> f arr
+                         I.Radio arr -> f arr
+                         I.Dropdown arr -> f arr
+                         I.Checkbox arr -> f arr
                   ]
                 , FormField.field_
                   { helpText: Nothing
@@ -462,7 +470,7 @@ makeInput (FormConfig config) inputType =
     newSupply = config.supply + 1
     newRef = InputRef config.supply
     newInput = InputConfig $ case inputType of
-      I.Number _ -> { inputType, relations: [], validations: [ V.IsNumber ] }
+      I.Number _ _ -> { inputType, relations: [], validations: [ V.IsNumber ] }
       otherwise  -> { inputType, relations: [], validations: [] }
 
 updateInput :: FormConfig' -> InputRef -> (InputConfig' -> InputConfig') -> FormConfig'
@@ -471,54 +479,54 @@ updateInput (FormConfig config) ref f =
 
 setInputLabel :: String -> InputConfig' -> InputConfig'
 setInputLabel str (InputConfig i) = InputConfig $ case i.inputType of
-  I.Text (I.Attrs x) ->
-    i { inputType = I.Text $ I.Attrs $ x { label = str } }
-  I.TextArea (I.Attrs x) ->
-    i { inputType = I.TextArea $ I.Attrs $ x { label = str } }
-  I.Number (I.Attrs x) ->
-    i { inputType = I.Number $ I.Attrs $ x { label = str } }
-  I.Options (I.Attrs x) inputOpts ->
-    i { inputType = I.Options (I.Attrs $ x { label = str }) inputOpts }
+  I.Text (I.Attrs x) formInput ->
+    i { inputType = I.Text (I.Attrs $ x { label = str }) formInput }
+  I.TextArea (I.Attrs x) formInput ->
+    i { inputType = I.TextArea (I.Attrs $ x { label = str }) formInput }
+  I.Number (I.Attrs x) formInput ->
+    i { inputType = I.Number (I.Attrs $ x { label = str }) formInput }
+  I.Options (I.Attrs x) formInput ->
+    i { inputType = I.Options (I.Attrs $ x { label = str }) formInput }
 
 setInputHelpText :: Maybe String -> InputConfig' -> InputConfig'
 setInputHelpText str (InputConfig i) = InputConfig $ case i.inputType of
-  I.Text (I.Attrs x) ->
-    i { inputType = I.Text $ I.Attrs $ x { helpText = str } }
-  I.TextArea (I.Attrs x) ->
-    i { inputType = I.TextArea $ I.Attrs $ x { helpText = str } }
-  I.Number (I.Attrs x) ->
-    i { inputType = I.Number $ I.Attrs $ x { helpText = str } }
-  I.Options (I.Attrs x) inputOpts ->
-    i { inputType = I.Options (I.Attrs $ x { helpText = str }) inputOpts }
+  I.Text (I.Attrs x) formInput ->
+    i { inputType = I.Text (I.Attrs $ x { helpText = str }) formInput }
+  I.TextArea (I.Attrs x) formInput ->
+    i { inputType = I.TextArea (I.Attrs $ x { helpText = str }) formInput }
+  I.Number (I.Attrs x) formInput ->
+    i { inputType = I.Number (I.Attrs $ x { helpText = str }) formInput }
+  I.Options (I.Attrs x) formInput ->
+    i { inputType = I.Options (I.Attrs $ x { helpText = str }) formInput }
 
 setOptionText :: Int -> String -> InputConfig' -> InputConfig'
 setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
-  I.Options attrs inputOpts ->
-    let newOpts = case inputOpts of
-          I.Radio arr -> I.Radio $ fromMaybe arr $ updateAt index (TextItem str) arr
+  I.Options attrs (I.FormInput f@{ input }) ->
+    let new = case input of
+          I.Radio arr -> I.Radio $ fromMaybe arr $ updateAt index (I.TextItem str) arr
           -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> inputOpts
-     in i { inputType = I.Options attrs newOpts }
+          otherwise -> input
+     in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
 insertOption :: String -> InputConfig' -> InputConfig'
 insertOption str (InputConfig i) = InputConfig $ case i.inputType of
-  I.Options attrs inputOpts ->
-    let newOpts = case inputOpts of
-          I.Radio arr -> I.Radio $ arr <> [ TextItem str ]
+  I.Options attrs (I.FormInput f@{ input }) ->
+    let new = case input of
+          I.Radio arr -> I.Radio $ arr <> [ I.TextItem str ]
           -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> inputOpts
-     in i { inputType = I.Options attrs newOpts }
+          otherwise -> input
+     in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
 removeOption :: Int -> InputConfig' -> InputConfig'
 removeOption index (InputConfig i) = InputConfig $ case i.inputType of
-  I.Options attrs inputOpts ->
-    let newOpts = case inputOpts of
+  I.Options attrs (I.FormInput f@{ input }) ->
+    let new = case input of
           I.Radio arr -> I.Radio $ fromMaybe arr $ deleteAt index arr
           -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> inputOpts
-     in i { inputType = I.Options attrs newOpts }
+          otherwise -> input
+     in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
 insertValidation :: V.Validate -> InputConfig' -> InputConfig'
