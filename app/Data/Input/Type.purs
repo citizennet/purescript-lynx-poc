@@ -135,7 +135,7 @@ newtype Attrs = Attrs
 instance encodeJsonAttrs :: EncodeJson Attrs where
   encodeJson (Attrs i) =
     "label" := i.label
-    ~> "helpText" := i.label
+    ~> "helpText" := i.helpText
     ~> jsonEmptyObject
 
 instance decodeJsonAttrs :: DecodeJson Attrs where

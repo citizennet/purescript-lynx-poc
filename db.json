@@ -40,6 +40,166 @@
       ],
       "supply": 1,
       "id": 1
+    },
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputOptions": {
+                "optionItems": [
+                  {
+                    "itemValue": "My radio button",
+                    "itemType": "TextItem"
+                  },
+                  {
+                    "itemValue": "Brings all the boys",
+                    "itemType": "TextItem"
+                  }
+                ],
+                "optionType": "Radio"
+              },
+              "inputAttrs": {
+                "helpText": "But not if you want to select these",
+                "label": "But not if you want to select these"
+              },
+              "inputType": "Options"
+            }
+          }
+        ]
+      ],
+      "supply": 1,
+      "id": 2
+    },
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputOptions": {
+                "optionItems": [
+                  {
+                    "itemValue": "Yes",
+                    "itemType": "TextItem"
+                  },
+                  {
+                    "itemValue": "Maybe",
+                    "itemType": "TextItem"
+                  },
+                  {
+                    "itemValue": "Not at all",
+                    "itemType": "TextItem"
+                  }
+                ],
+                "optionType": "Radio"
+              },
+              "inputAttrs": {
+                "helpText": "Chris may refactor as much as he wants",
+                "label": "Chris may refactor as much as he wants"
+              },
+              "inputType": "Options"
+            }
+          }
+        ]
+      ],
+      "supply": 1,
+      "id": 3
+    },
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputOptions": {
+                "optionItems": [
+                  {
+                    "itemValue": "Yes",
+                    "itemType": "TextItem"
+                  },
+                  {
+                    "itemValue": "Maybe",
+                    "itemType": "TextItem"
+                  },
+                  {
+                    "itemValue": "Not at all",
+                    "itemType": "TextItem"
+                  }
+                ],
+                "optionType": "Radio"
+              },
+              "inputAttrs": {
+                "helpText": "Chris may refactor as much as he wants",
+                "label": "Chris may refactor as much as he wants"
+              },
+              "inputType": "Options"
+            }
+          }
+        ]
+      ],
+      "supply": 1,
+      "id": 4
+    },
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputOptions": {
+                "optionItems": [
+                  {
+                    "itemValue": "Yes",
+                    "itemType": "TextItem"
+                  },
+                  {
+                    "itemValue": "Maybe",
+                    "itemType": "TextItem"
+                  },
+                  {
+                    "itemValue": "Not at all",
+                    "itemType": "TextItem"
+                  }
+                ],
+                "optionType": "Radio"
+              },
+              "inputAttrs": {
+                "helpText": "Something n",
+                "label": "Chris may refactor as much as he wants"
+              },
+              "inputType": "Options"
+            }
+          }
+        ]
+      ],
+      "supply": 1,
+      "id": 5
     }
   ]
 }

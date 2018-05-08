@@ -17,7 +17,7 @@ import DOM.HTML (window)
 import DOM.HTML.Location (setHash)
 import DOM.HTML.Window (location)
 import Data.Argonaut (decodeJson, encodeJson)
-import Data.Array (elem, filter, snoc, updateAt, (:))
+import Data.Array (deleteAt, elem, filter, snoc, updateAt, (:))
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
 import Data.FunctorWithIndex (mapWithIndex)
@@ -26,7 +26,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap, wrap)
 import Data.Traversable (traverse_)
-import Data.Tuple (Tuple, uncurry)
+import Data.Tuple (Tuple(..), uncurry)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -45,12 +45,16 @@ data Query a
   = Create I.AppInput a
   | Initialize a
   | UpdateAttrs InputRef AttrField a
-  | UpdateValidate InputRef (Action V.Validate) a
   | UpdateOptValue InputRef Int String a
+  | ChangeOptions InputRef (ArrayAction (Tuple Int String)) a
+  | ChangeValidations InputRef (ArrayAction V.Validate) a
   | Submit a
 
-data Action a
+-- Perform an update on array-based data by adding, removing,
+-- or overwriting entirely.
+data ArrayAction a
   = Add a
+  -- | Set a
   | Remove a
 
 data AttrField
@@ -115,7 +119,22 @@ component =
             st { config = updateInput st.config ref (setInputHelpText x) }
           pure a
 
-      UpdateValidate ref action a -> case action of
+      UpdateOptValue ref index str a -> do
+        H.modify \st ->
+          st { config = updateInput st.config ref (setOptionText index str) }
+        pure a
+
+      ChangeOptions ref action a -> case action of
+        Add (Tuple _ val) -> do
+          H.modify \st ->
+            st { config = updateInput st.config ref (insertOption val) }
+          pure a
+        Remove (Tuple index _) -> do
+          H.modify \st ->
+            st { config = updateInput st.config ref (removeOption index) }
+          pure a
+
+      ChangeValidations ref action a -> case action of
         Add v -> do
           H.modify \st ->
             st { config = updateInput st.config ref (insertValidation v) }
@@ -125,15 +144,9 @@ component =
             st { config = updateInput st.config ref (removeValidation v) }
           pure a
 
-      UpdateOptValue ref index str a -> do
-        H.modify \st ->
-          st { config = updateInput st.config ref (setOptionText index str) }
-        pure a
-
       Submit a -> do
         -- Submit the form to the backend DB
-        state <- H.get
-        _ <- submit state
+        submit =<< H.get
         pure a
 
       where
@@ -173,7 +186,7 @@ component =
             , label: "Options (Radio)"
             , type_: I.Options
                 (I.Attrs { label: "", helpText: Just "" })
-                (Radio [ TextItem "", TextItem "", TextItem "" ])
+                (Radio [ ])
             }
           ]
         , HH.div
@@ -245,7 +258,7 @@ component =
                   }
                   [ Toggle.toggle
                     [ HP.checked (elem V.Required validations)
-                    , HE.onClick $ HE.input_ $ UpdateValidate k (Add V.Required)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
                     ]
                   ]
                 ]
@@ -287,7 +300,7 @@ component =
                   }
                   [ Toggle.toggle
                     [ HP.checked (elem V.Required validations)
-                    , HE.onClick $ HE.input_ $ UpdateValidate k (Add V.Required)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
                     ]
                   ]
                 ]
@@ -296,8 +309,10 @@ component =
               HH.div
                 [ css "m-8" ]
                 [ HH.div_
-                  [ renderIcon { color: "bg-yellow", icon: "fa fa-align-justify" }
-                  , HH.span_ [ HH.text "Options" ]
+                  [ renderIcon
+                    { color: "bg-yellow", icon: "fa fa-align-justify" }
+                  , HH.span_
+                    [ HH.text "Options" ]
                   ]
                 , FormField.field_
                   { helpText: Nothing
@@ -327,13 +342,24 @@ component =
                   , helpText: Just "Add options above."
                   , error: Nothing
                   }
-                  [ HH.div_ $
+                  [ HH.button
+                    [ HE.onClick $ HE.input_ $ ChangeOptions k (Add $ Tuple (-1) "") ]
+                    [ HH.text "Add" ]
+                  , HH.div_ $
                       let f arr = flip mapWithIndex arr $ \i v ->
-                            Input.input
-                              [ HP.value $ optionItemToStr v
-                              , HE.onValueInput $ HE.input $ \str ->
-                                  UpdateOptValue k i str
+                            HH.div_
+                            [ Input.input
+                                [ HP.value $ optionItemToStr v
+                                , HE.onValueInput $ HE.input $ \str ->
+                                    UpdateOptValue k i str
+                                ]
+                            , HH.button
+                              [ HE.onClick
+                                $ HE.input_
+                                $ ChangeOptions k (Remove $ Tuple i (optionItemToStr v))
                               ]
+                              [ HH.text "Remove" ]
+                            ]
                        in case opts of
                          Radio arr -> f arr
                          Dropdown arr -> f arr
@@ -347,7 +373,7 @@ component =
                   }
                   [ Toggle.toggle
                     [ HP.checked (elem V.Required validations)
-                    , HE.onClick $ HE.input_ $ UpdateValidate k (Add V.Required)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
                     ]
                   ]
                 ]
@@ -417,15 +443,32 @@ setInputHelpText str (InputConfig i) = InputConfig $ case i.inputType of
 
 setOptionText :: Int -> String -> InputConfig' -> InputConfig'
 setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
-  I.Options (I.Attrs x) inputOpts ->
+  I.Options attrs inputOpts ->
     let newOpts = case inputOpts of
-          I.Radio arr ->
-            let newArr = fromMaybe []
-                  $ updateAt index (TextItem str) arr
-             in I.Radio newArr
+          I.Radio arr -> I.Radio $ fromMaybe arr $ updateAt index (TextItem str) arr
           -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
           otherwise -> inputOpts
-     in i { inputType = I.Options (I.Attrs x) newOpts }
+     in i { inputType = I.Options attrs newOpts }
+  otherwise -> i
+
+insertOption :: String -> InputConfig' -> InputConfig'
+insertOption str (InputConfig i) = InputConfig $ case i.inputType of
+  I.Options attrs inputOpts ->
+    let newOpts = case inputOpts of
+          I.Radio arr -> I.Radio $ arr <> [ TextItem str ]
+          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
+          otherwise -> inputOpts
+     in i { inputType = I.Options attrs newOpts }
+  otherwise -> i
+
+removeOption :: Int -> InputConfig' -> InputConfig'
+removeOption index (InputConfig i) = InputConfig $ case i.inputType of
+  I.Options attrs inputOpts ->
+    let newOpts = case inputOpts of
+          I.Radio arr -> I.Radio $ fromMaybe arr $ deleteAt index arr
+          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
+          otherwise -> inputOpts
+     in i { inputType = I.Options attrs newOpts }
   otherwise -> i
 
 insertValidation :: V.Validate -> InputConfig' -> InputConfig'
@@ -443,7 +486,9 @@ foldrWithKey f z =
 
 getFormConfig :: ∀ eff. FormId -> Aff (Effects eff) (Either String FormConfig')
 getFormConfig formId =
-  decodeJson <<< _.response <$> get ("http://localhost:3000/forms/" <> (show <<< unwrap) formId)
+  decodeJson
+  <<< _.response
+  <$> get ("http://localhost:3000/forms/" <> (show <<< unwrap) formId)
 
 saveFormConfig :: ∀ eff. FormConfig' -> Aff (Effects eff) (Either String FormConfig')
 saveFormConfig config =

@@ -49,12 +49,12 @@ handleInput st ref = fromMaybe (HH.div_ [])
       TextArea attrs -> renderInput $ Text attrs
       Number attrs -> renderInput $ Text attrs
 
-      Options (Attrs attrs) inputOpts -> case inputOpts of
+      Options attrs@(Attrs { helpText, label }) inputOpts -> case inputOpts of
         Radio arr ->
           FormField.fieldset_
-          { label: attrs.label
+          { label
+          , helpText
           , inputId: refStr
-          , helpText: attrs.helpText
           , error: Nothing
           }
           [ HH.div_ $
@@ -64,5 +64,5 @@ handleInput st ref = fromMaybe (HH.div_ [])
                   [ HH.text $ optionItemToStr v ]
           ]
 
-        Dropdown arr -> renderInput $ Options (Attrs attrs) (Radio arr)
-        Checkbox arr -> renderInput $ Options (Attrs attrs) (Radio arr)
+        Dropdown arr -> renderInput $ Options attrs (Radio arr)
+        Checkbox arr -> renderInput $ Options attrs (Radio arr)
