@@ -37,6 +37,81 @@
       ],
       "supply": 2,
       "id": 0
+    },
+    {
+      "inputs": [
+        [
+          1,
+          {
+            "relations": [],
+            "validations": [],
+            "inputType": {
+              "inputItems": null,
+              "inputAttrs": {
+                "helpText": "THis is a textarea",
+                "label": "THis is a textarea"
+              },
+              "inputType": "TextArea"
+            }
+          }
+        ],
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputItems": null,
+              "inputAttrs": {
+                "helpText": "This is a text input",
+                "label": "This is a text input"
+              },
+              "inputType": "Text"
+            }
+          }
+        ],
+        [
+          2,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputItems": {
+                "optionItems": [
+                  {
+                    "itemValue": "Item One",
+                    "itemType": "Text"
+                  },
+                  {
+                    "itemValue": "Item Two",
+                    "itemType": "Text"
+                  },
+                  {
+                    "itemValue": "Item Three",
+                    "itemType": "Text"
+                  }
+                ],
+                "optionType": "Radio"
+              },
+              "inputAttrs": {
+                "helpText": "Now we have some radio buttons",
+                "label": "Now we have some radio buttons"
+              },
+              "inputType": "Options"
+            }
+          }
+        ]
+      ],
+      "supply": 3,
+      "id": 1
     }
   ]
 }
