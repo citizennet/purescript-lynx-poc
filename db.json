@@ -12,105 +12,33 @@
               }
             ],
             "inputType": {
-              "inputAttrs": {
-                "helpText": "Name",
-                "label": "Name"
-              },
-              "inputType": "Text"
-            }
-          }
-        ],
-        [
-          1,
-          {
-            "relations": [],
-            "validations": [],
-            "inputType": {
-              "inputAttrs": {
-                "helpText": "Notes",
-                "label": "Notes"
-              },
-              "inputType": "Text"
-            }
-          }
-        ]
-      ],
-      "supply": 2,
-      "id": 0
-    },
-    {
-      "inputs": [
-        [
-          1,
-          {
-            "relations": [],
-            "validations": [],
-            "inputType": {
-              "inputItems": null,
-              "inputAttrs": {
-                "helpText": "THis is a textarea",
-                "label": "THis is a textarea"
-              },
-              "inputType": "TextArea"
-            }
-          }
-        ],
-        [
-          0,
-          {
-            "relations": [],
-            "validations": [
-              {
-                "validationType": "Required"
-              }
-            ],
-            "inputType": {
-              "inputItems": null,
-              "inputAttrs": {
-                "helpText": "This is a text input",
-                "label": "This is a text input"
-              },
-              "inputType": "Text"
-            }
-          }
-        ],
-        [
-          2,
-          {
-            "relations": [],
-            "validations": [
-              {
-                "validationType": "Required"
-              }
-            ],
-            "inputType": {
-              "inputItems": {
+              "inputOptions": {
                 "optionItems": [
                   {
-                    "itemValue": "Item One",
-                    "itemType": "Text"
+                    "itemValue": "This is something",
+                    "itemType": "TextItem"
                   },
                   {
-                    "itemValue": "Item Two",
-                    "itemType": "Text"
+                    "itemValue": "This ain't shit but hoes and tricks",
+                    "itemType": "TextItem"
                   },
                   {
-                    "itemValue": "Item Three",
-                    "itemType": "Text"
+                    "itemValue": "This is shit, but not hoes and tricks",
+                    "itemType": "TextItem"
                   }
                 ],
                 "optionType": "Radio"
               },
               "inputAttrs": {
-                "helpText": "Now we have some radio buttons",
-                "label": "Now we have some radio buttons"
+                "helpText": "Tell that to the homies",
+                "label": "Tell that to the homies"
               },
               "inputType": "Options"
             }
           }
         ]
       ],
-      "supply": 3,
+      "supply": 1,
       "id": 1
     }
   ]

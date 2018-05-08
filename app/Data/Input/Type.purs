@@ -9,6 +9,7 @@ import Data.Argonaut.Encode (encodeJson, (:=), (~>))
 import Data.Argonaut.Encode.Class (class EncodeJson)
 import Data.Either (Either(Left, Right))
 import Data.Maybe (Maybe(..), maybe)
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 
 -- For convenience.
@@ -28,6 +29,46 @@ data Input attrs items
   | Number     attrs
   | Options    attrs (InputOptions items)
 
+instance encodeJsonInput
+  :: (EncodeJson attrs, EncodeJson items)
+  => EncodeJson (Input attrs items)
+  where
+  encodeJson i = case res of
+      Right (Tuple itype attrs) ->
+        "inputType" := itype
+        ~> "inputAttrs" := encodeJson attrs
+        ~> "inputOptions" := encodeJson (Nothing :: Maybe (InputOptions items))
+        ~> jsonEmptyObject
+      Left (Tuple itype (Tuple attrs items)) ->
+        "inputType" := itype
+        ~> "inputAttrs" := encodeJson attrs
+        ~> "inputOptions" := encodeJson (Just $ encodeJson items)
+        ~> jsonEmptyObject
+    where
+      res = case i of
+        Text x     -> Right $ Tuple "Text" x
+        TextArea x -> Right $ Tuple "TextArea" x
+        Number x   -> Right $ Tuple "Number" x
+        Options y z  -> Left $ Tuple "Options" (Tuple y z)
+
+instance decodeJsonInput
+  :: (DecodeJson attrs, DecodeJson items)
+  => DecodeJson (Input attrs items)
+  where
+  decodeJson json = do
+    obj <- decodeJson json
+    type' <- obj .? "inputType"
+    attrs <- obj .? "inputAttrs"
+    inputOpts <- traverse decodeJson =<< obj .? "inputOptions"
+    case type' of
+      "Text" -> pure $ Text attrs
+      "TextArea" -> pure $ TextArea attrs
+      "Number" -> pure $ Number attrs
+      "Options" -> inputOpts # maybe
+        (Left "Expected input options for Options field, but there were none.")
+        (\opts -> Right $ Options attrs opts)
+      _ -> Left $ "No decoder written for case " <> type'
+
 -- These can represent collections of options, where we once again need some top
 -- level unified constructor for all possible 'items' we'll support.
 data InputOptions items
@@ -42,9 +83,9 @@ instance encodeJsonInputOptions :: EncodeJson items => EncodeJson (InputOptions 
     ~> jsonEmptyObject
     where
       (Tuple type' items) = case i of
-        Radio m    -> Tuple "Radio" m
-        Dropdown m -> Tuple "Dropdown" m
-        Checkbox m -> Tuple "Checkbox" m
+        Radio arr    -> Tuple "Radio" arr
+        Dropdown arr -> Tuple "Dropdown" arr
+        Checkbox arr -> Tuple "Checkbox" arr
 
 instance decodeJsonInputOptions :: DecodeJson items => DecodeJson (InputOptions items) where
   decodeJson json = do
@@ -68,7 +109,7 @@ instance encodeJsonOptionItems :: EncodeJson OptionItems where
     ~> jsonEmptyObject
     where
       (Tuple typ val) = case i of
-        TextItem s -> Tuple "Text" s
+        TextItem s -> Tuple "TextItem" s
         CustomItem (MyItem s) -> Tuple "MyItem" s
 
 instance decodeJsonOptionItems :: DecodeJson OptionItems where
@@ -82,40 +123,6 @@ instance decodeJsonOptionItems :: DecodeJson OptionItems where
       _ -> Left $ "No decoder written for case " <> value
 
 newtype MyItem = MyItem String
-
-instance encodeJsonInput :: (EncodeJson attrs, EncodeJson items) => EncodeJson (Input attrs items) where
-  encodeJson i = case res of
-      Right (Tuple itype attrs) ->
-        "inputType" := itype
-        ~> "inputAttrs" := encodeJson attrs
-        ~> "inputItems" := encodeJson (Nothing :: Maybe (InputOptions items))
-        ~> jsonEmptyObject
-      Left (Tuple itype (Tuple attrs items)) ->
-        "inputType" := itype
-        ~> "inputAttrs" := encodeJson attrs
-        ~> "inputItems" := encodeJson (Just $ encodeJson items)
-        ~> jsonEmptyObject
-    where
-      res = case i of
-        Text x     -> Right $ Tuple "Text" x
-        TextArea x -> Right $ Tuple "TextArea" x
-        Number x   -> Right $ Tuple "Number" x
-        Options y z  -> Left $ Tuple "Options" (Tuple y z)
-
-instance decodeJsonInput :: (DecodeJson attrs, DecodeJson items) => DecodeJson (Input attrs items) where
-  decodeJson json = do
-    obj <- decodeJson json
-    type' <- obj .? "inputType"
-    attrs <- obj .? "inputAttrs"
-    inputOpts <- obj .? "inputItems"
-    case type' of
-      "Text" -> pure $ Text attrs
-      "TextArea" -> pure $ TextArea attrs
-      "Number" -> pure $ Number attrs
-      "Options" -> inputOpts # maybe
-        (Left "Expected input options for Options field, but there were none.")
-        (\opts -> Right $ Options attrs opts)
-      _ -> Left $ "No decoder written for case " <> type'
 
 -- Attributes should only contain information about the display
 -- of the input and nothing about the contents. No DOM input, no
