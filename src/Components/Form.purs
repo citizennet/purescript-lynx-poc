@@ -23,8 +23,9 @@ import Halogen.HTML.Events as HE
 import Lynx.Data.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
 import Network.HTTP.Affjax (AJAX, get)
 
+-- `i` is the Input type
 data Query v i r a
-  = UpdateValue InputRef String a
+  = UpdateValue InputRef (i -> i) a
   | Blur InputRef a
   | Submit a
   | GetForm FormId a
@@ -52,7 +53,7 @@ data Message
 
 type State v i r =
   { config       :: FormConfig v i r
-  , form         :: Map InputRef String
+  , form         :: Map InputRef i
   , selectedForm :: FormId
   , fromDB       :: Boolean
   }
@@ -116,10 +117,10 @@ component { handleInput, handleValidate, handleRelate } =
            _.response <$> get ("http://localhost:3000/forms/" <> (show $ unwrap i))
         case decodeJson res of
           Left s -> H.liftAff $ Console.log s *> pure a
-          Right form -> do
+          Right config -> do
              H.modify \st -> st
-               { config = form
-               , form = const "" <$> _.inputs (unwrap form)
+               { config = config
+               , form = _.inputs (unwrap config)
                }
              pure a
 

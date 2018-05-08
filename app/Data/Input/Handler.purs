@@ -61,7 +61,7 @@ handleInput st ref = fromMaybe (HH.div_ [])
 
       TextArea attrs contents -> renderInput $ Text attrs contents
 
-      Number (Attrs { helpText, label }) (FormInput { input, result, validate }) ->
+      Number (Attrs { helpText, label }) (FormInput { input, result }) ->
         FormField.field_
         { helpText
         , label
@@ -77,7 +77,7 @@ handleInput st ref = fromMaybe (HH.div_ [])
 
       Options
         attrs@(Attrs { helpText, label })
-        (FormInput { input, result, validate }) -> case input of
+        (FormInput { input, result }) -> case input of
         Radio arr ->
           FormField.fieldset_
           { label
