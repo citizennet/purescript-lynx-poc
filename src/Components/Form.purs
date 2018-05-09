@@ -8,24 +8,25 @@ import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as Console
 import Control.Monad.State.Class (class MonadState)
 import Data.Argonaut (class DecodeJson, Json, decodeJson)
-import Data.Array ((:))
 import Data.Array (fromFoldable) as Array
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Traversable (traverse_)
+import Debug.Trace (spy)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Lynx.Data.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
 import Network.HTTP.Affjax (AJAX, get)
 
+-- `i` is the Input type
 data Query v i r a
-  = UpdateValue InputRef String a
-  | Blur InputRef a
+  = UpdateValue InputRef (i -> i) a
+  | Blur InputRef (i -> i) a -- reset function
   | Submit a
   | GetForm FormId a
   | Initialize a
@@ -38,8 +39,8 @@ type ComponentConfig v i r eff =
     -> H.ComponentHTML (Query v i r)
   , handleValidate
     :: v
-    -> String
-    -> Either String String
+    -> i
+    -> i
   , handleRelate
     :: r
     -> InputRef
@@ -52,7 +53,7 @@ data Message
 
 type State v i r =
   { config       :: FormConfig v i r
-  , form         :: Map InputRef String
+  , form         :: Map InputRef i
   , selectedForm :: FormId
   , fromDB       :: Boolean
   }
@@ -61,6 +62,14 @@ type Effects eff =
   ( console :: CONSOLE
   , ajax :: AJAX
   | eff )
+
+inputAp :: ∀ i. (i -> i) -> InputRef -> Map InputRef i -> Map InputRef i
+inputAp f ref orig
+  = fromMaybe orig new
+  where
+    new = do
+      type' <- Map.lookup ref orig
+      pure $ Map.insert ref (spy $ f type') orig
 
 component :: ∀ v i r eff
    . DecodeJson v
@@ -80,8 +89,8 @@ component { handleInput, handleValidate, handleRelate } =
   where
     initialState = case _ of
       Left config ->
-        { config
-        , form: Map.empty
+        { form: (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
+        , config
         , selectedForm: FormId 0
         , fromDB: false
         }
@@ -107,7 +116,10 @@ component { handleInput, handleValidate, handleRelate } =
           else pure a
 
       Receiver (Left config) a -> do
-        H.modify _ { config = config }
+        H.modify _
+          { config = config
+          , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
+          }
         pure a
       Receiver (Right _) a -> pure a
 
@@ -117,18 +129,15 @@ component { handleInput, handleValidate, handleRelate } =
         case decodeJson res of
           Left s -> H.liftAff $ Console.log s *> pure a
           Right form -> do
-             H.modify \st -> st
-               { config = form
-               , form = const "" <$> _.inputs (unwrap form)
-               }
+             H.modify _ { form = form }
              pure a
 
-      UpdateValue ref str a -> a <$ do
-        H.modify \st -> st { form = Map.insert ref str st.form }
+      UpdateValue ref func a -> a <$ do
+        H.modify \st -> st { form = inputAp func ref st.form }
 
-      Blur ref a -> a <$ do
+      Blur ref f a -> a <$ do
         runRelations ref handleRelate
-        runValidations ref handleValidate
+        runValidations ref f handleValidate
 
       Submit a -> a <$ do
         refs <- H.gets (Map.keys <<< _.form)
@@ -138,7 +147,7 @@ component { handleInput, handleValidate, handleRelate } =
     render st = HH.div_
       [ HH.div_
         $ Array.fromFoldable
-        $ handleInput st <$> Map.keys (_.inputs $ unwrap st.config)
+        $ handleInput st <$> Map.keys st.form
       , HH.button
           [ HE.onClick (HE.input_ Submit) ]
           [ HH.text "Submit" ]
@@ -148,22 +157,22 @@ component { handleInput, handleValidate, handleRelate } =
 runValidations :: ∀ eff v i r m
   . MonadAff (Effects eff) m
  => InputRef
- -> (v -> String -> Either String String)
+ -> (i -> i) -- reset
+ -> (v -> i -> i)
  -> H.ComponentDSL (State v i r) (Query v i r) Message m Unit
-runValidations ref validate = do
+runValidations ref reset validate = do
   st <- H.get
-  case Map.lookup ref st.form of
-    Nothing -> pure unit
-    Just val -> case Map.lookup ref (_.inputs $ unwrap st.config) of
-      Nothing -> pure unit
-      Just (InputConfig config) -> do
-        let successive (Left str) arr = str : arr
-            successive _ arr = arr
-            res =
-              case foldr (\v arr -> successive (validate v val) arr) [] config.validations of
-                [] -> Right $ "Valid: " <> val
-                arr -> Left arr
-        _ <- H.liftAff $ Console.logShow res
+  case Map.lookup ref (_.inputs $ unwrap st.config) of
+    Nothing -> do
+       H.liftAff $ Console.log $ "Could not find ref " <> show ref <> " in config."
+       pure unit
+    Just (InputConfig config) -> case Map.lookup ref st.form of
+      Nothing -> do
+        H.liftAff $ Console.log $ "Could not find ref " <> show ref <> " in form."
+        pure unit
+      Just input -> do
+        let type' = foldr (\v i -> validate v i) (reset input) config.validations
+        H.modify _ { form = inputAp (const type') ref st.form }
         pure unit
 
 -- Attempt to use the provided relations helper to run on form relations
@@ -175,7 +184,8 @@ runRelations :: ∀ v i r m
 runRelations ref runRelation = do
   st <- H.get
   case Map.lookup ref (_.inputs $ unwrap st.config) of
-    Nothing -> pure unit
+    Nothing ->
+       pure unit
     Just (InputConfig config) -> do
       traverse_ (flip runRelation $ ref) config.relations
       pure unit

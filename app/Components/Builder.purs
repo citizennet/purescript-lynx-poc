@@ -2,8 +2,8 @@ module App.Components.Builder where
 
 import Prelude
 
-import App.Data.Input.Handler (handleInput) as I
-import App.Data.Input.Type (AppInput, Attrs(Attrs), Input(Number, TextArea, Text)) as I
+import App.Data.Input.Handler (handleInput, optionItemToStr)
+import App.Data.Input.Type as I
 import App.Data.Relate.Handler (handleRelate) as R
 import App.Data.Relate.Type (Relate) as R
 import App.Data.Validate.Handler (handleValidate) as V
@@ -15,15 +15,16 @@ import DOM.HTML (window)
 import DOM.HTML.Location (setHash)
 import DOM.HTML.Window (location)
 import Data.Argonaut (decodeJson, encodeJson)
-import Data.Array (elem, filter, snoc, (:))
+import Data.Array (deleteAt, elem, filter, snoc, updateAt, (:))
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
+import Data.FunctorWithIndex (mapWithIndex)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap, wrap)
 import Data.Traversable (traverse_)
-import Data.Tuple (Tuple, uncurry)
+import Data.Tuple (Tuple(..), uncurry)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -42,10 +43,14 @@ data Query a
   = Create I.AppInput a
   | Initialize a
   | UpdateAttrs InputRef AttrField a
-  | UpdateValidate InputRef (Action V.Validate) a
+  | UpdateOptValue InputRef Int String a
+  | ChangeOptions InputRef (ArrayAction (Tuple Int String)) a
+  | ChangeValidations InputRef (ArrayAction V.Validate) a
   | Submit a
 
-data Action a
+-- Perform an update on array-based data by adding, removing,
+-- or overwriting entirely.
+data ArrayAction a
   = Add a
   | Remove a
 
@@ -103,25 +108,44 @@ component =
 
       UpdateAttrs ref change a -> case change of
         Label str -> do
-          H.modify \st -> st { config = updateInput st.config ref (setInputLabel str) }
+          H.modify \st ->
+            st { config = updateInput st.config ref (setInputLabel str) }
           pure a
         HelpText x -> do
-          H.modify \st -> st { config = updateInput st.config ref (setInputHelpText x) }
+          H.modify \st ->
+            st { config = updateInput st.config ref (setInputHelpText x) }
           pure a
 
-      UpdateValidate ref action a -> case action of
+      UpdateOptValue ref index str a -> do
+        H.modify \st ->
+          st { config = updateInput st.config ref (setOptionText index str) }
+        pure a
+
+      ChangeOptions ref action a -> case action of
+        Add (Tuple _ val) -> do
+          H.modify \st ->
+            st { config = updateInput st.config ref (insertOption val) }
+          pure a
+        Remove (Tuple index _) -> do
+          H.modify \st ->
+            st { config = updateInput st.config ref (removeOption index) }
+          pure a
+
+      ChangeValidations ref action a -> case action of
         Add v -> do
-          H.modify \st -> st { config = updateInput st.config ref (insertValidation v) }
+          H.modify \st ->
+            st { config = updateInput st.config ref (insertValidation v) }
           pure a
         Remove v -> do
-          H.modify \st -> st { config = updateInput st.config ref (removeValidation v) }
+          H.modify \st ->
+            st { config = updateInput st.config ref (removeValidation v) }
           pure a
 
       Submit a -> do
         -- Submit the form to the backend DB
-        state <- H.get
-        _ <- submit state
+        submit =<< H.get
         pure a
+
       where
         submit state = do
           config <- H.liftAff (saveFormConfig state.config)
@@ -129,10 +153,17 @@ component =
             Left err -> do
               H.liftAff (error err)
             Right (FormConfig { id }) -> do
-              H.liftEff $ setHash ("#/forms/" <> (show <<< unwrap) id) =<< location =<< window
+              H.liftEff
+                $ setHash
+                    ("#/forms/" <> (show <<< unwrap) id)
+                    =<< location
+                    =<< window
 
     render :: State -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects eff))
     render state =
+      let stringInput = I.FormInput { input: "", result: Left [], validate: false }
+          numberInput = I.FormInput { input: "", result: Left [], validate: false }
+       in
       HH.div
         [ css "flex bg-grey-lightest" ]
         [ HH.div
@@ -141,13 +172,30 @@ component =
             { color: "bg-red"
             , icon: "fa fa-align-justify"
             , label: "Text"
-            , type_: I.Text $ I.Attrs { label: "", helpText: Just "" }
+            , type_: I.Text (I.Attrs { label: "", helpText: Just "" }) stringInput
             }
           , mkInput
             { color: "bg-green"
             , icon: "fa fa-align-justify"
             , label: "Long Text"
-            , type_: I.TextArea $ I.Attrs { label: "", helpText: Just "" }
+            , type_: I.TextArea (I.Attrs { label: "", helpText: Just "" }) stringInput
+            }
+          , mkInput
+            { color: "bg-blue"
+            , icon: "fa fa-align-justify"
+            , label: "Number"
+            , type_: I.Number (I.Attrs { label: "", helpText: Just "" }) numberInput
+            }
+          , mkInput
+            { color: "bg-yellow"
+            , icon: "fa fa-align-justify"
+            , label: "Options (Radio)"
+            , type_: I.Options
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Radio [ ]
+                             , result: Left []
+                             , validate: false }
+                )
             }
           ]
         , HH.div
@@ -162,7 +210,7 @@ component =
           [ HH.slot
               unit
               (Component.component
-                { handleInput: I.handleInput
+                { handleInput: handleInput
                 , handleValidate: V.handleValidate
                 , handleRelate: R.handleRelate
                 })
@@ -177,9 +225,14 @@ component =
             r k (InputConfig x) acc = snoc acc (renderInputType k x)
 
             renderInputType k x = case x.inputType of
-              I.Text (I.Attrs l) ->  renderText k l x
-              I.TextArea (I.Attrs l) -> renderTextArea k l x
-              I.Number (I.Attrs l) -> renderText k l x
+              I.Text (I.Attrs l) _
+                -> renderText k l x
+              I.TextArea (I.Attrs l) _
+                -> renderTextArea k l x
+              I.Number (I.Attrs l) _
+                -> renderNumber k l x
+              I.Options (I.Attrs l) (I.FormInput { input })
+                -> renderOptions k l x input
 
             renderText k l c@{ inputType, validations, relations } =
               HH.div
@@ -218,7 +271,7 @@ component =
                   }
                   [ Toggle.toggle
                     [ HP.checked (elem V.Required validations)
-                    , HE.onClick $ HE.input_ $ UpdateValidate k (Add V.Required)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
                     ]
                   ]
                 ]
@@ -260,7 +313,122 @@ component =
                   }
                   [ Toggle.toggle
                     [ HP.checked (elem V.Required validations)
-                    , HE.onClick $ HE.input_ $ UpdateValidate k (Add V.Required)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
+                    ]
+                  ]
+                ]
+
+            renderNumber k l c@{ inputType, validations, relations } =
+              HH.div
+                [ css "m-8" ]
+                [ HH.div_
+                  [ renderIcon { color: "bg-blue", icon: "fa fa-align-justify" }
+                  , HH.span_ [ HH.text "Number" ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Label"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< Label
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Helptext"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value $ fromMaybe "" l.helpText
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpText <<< Just
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Required"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Toggle.toggle
+                    [ HP.checked (elem V.Required validations)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
+                    ]
+                  ]
+                ]
+
+            renderOptions k l c@{ inputType, validations, relations } opts =
+              HH.div
+                [ css "m-8" ]
+                [ HH.div_
+                  [ renderIcon
+                    { color: "bg-yellow", icon: "fa fa-align-justify" }
+                  , HH.span_
+                    [ HH.text "Options" ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Label"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< Label
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Helptext"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value $ fromMaybe "" l.helpText
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpText <<< Just
+                    ]
+                  ]
+                , FormField.fieldset_
+                  { label: "Group"
+                  , inputId: ""
+                  , helpText: Just "Add options above."
+                  , error: Nothing
+                  }
+                  [ HH.button
+                    [ HE.onClick $ HE.input_ $ ChangeOptions k (Add $ Tuple (-1) "") ]
+                    [ HH.text "Add" ]
+                  , HH.div_ $
+                      let f arr = flip mapWithIndex arr $ \i v ->
+                            HH.div_
+                            [ Input.input
+                                [ HP.value $ optionItemToStr v
+                                , HE.onValueInput $ HE.input $ \str ->
+                                    UpdateOptValue k i str
+                                ]
+                            , HH.button
+                              [ HE.onClick
+                                $ HE.input_
+                                $ ChangeOptions k (Remove $ Tuple i (optionItemToStr v))
+                              ]
+                              [ HH.text "Remove" ]
+                            ]
+                       in case opts of
+                         I.Radio arr -> f arr
+                         I.Dropdown arr -> f arr
+                         I.Checkbox arr -> f arr
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Required"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Toggle.toggle
+                    [ HP.checked (elem V.Required validations)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
                     ]
                   ]
                 ]
@@ -300,29 +468,73 @@ makeInput (FormConfig config) inputType =
   where
     newSupply = config.supply + 1
     newRef = InputRef config.supply
-    newInput = InputConfig { inputType, relations: [], validations: [] }
+    newInput = InputConfig $ case inputType of
+      I.Number _ _ -> { inputType, relations: [], validations: [ V.IsNumber ] }
+      otherwise  -> { inputType, relations: [], validations: [] }
 
 updateInput :: FormConfig' -> InputRef -> (InputConfig' -> InputConfig') -> FormConfig'
 updateInput (FormConfig config) ref f =
   wrap $ config { inputs = Map.update (map Just f) ref config.inputs }
 
 setInputLabel :: String -> InputConfig' -> InputConfig'
-setInputLabel str (InputConfig i) = case i.inputType of
-  I.Text (I.Attrs x) -> InputConfig $ i { inputType = I.Text $ I.Attrs $ x { label = str } }
-  I.TextArea (I.Attrs x) -> InputConfig $ i { inputType = I.TextArea $ I.Attrs $ x { label = str } }
-  I.Number (I.Attrs x) -> InputConfig $ i { inputType = I.Number $ I.Attrs $ x { label = str } }
+setInputLabel str (InputConfig i) = InputConfig $ case i.inputType of
+  I.Text (I.Attrs x) formInput ->
+    i { inputType = I.Text (I.Attrs $ x { label = str }) formInput }
+  I.TextArea (I.Attrs x) formInput ->
+    i { inputType = I.TextArea (I.Attrs $ x { label = str }) formInput }
+  I.Number (I.Attrs x) formInput ->
+    i { inputType = I.Number (I.Attrs $ x { label = str }) formInput }
+  I.Options (I.Attrs x) formInput ->
+    i { inputType = I.Options (I.Attrs $ x { label = str }) formInput }
 
 setInputHelpText :: Maybe String -> InputConfig' -> InputConfig'
-setInputHelpText str (InputConfig i) = case i.inputType of
-  I.Text (I.Attrs x) -> InputConfig $ i { inputType = I.Text $ I.Attrs $ x { helpText = str } }
-  I.TextArea (I.Attrs x) -> InputConfig $ i { inputType = I.TextArea $ I.Attrs $ x { helpText = str } }
-  I.Number (I.Attrs x) -> InputConfig $ i { inputType = I.Number $ I.Attrs $ x { helpText = str } }
+setInputHelpText str (InputConfig i) = InputConfig $ case i.inputType of
+  I.Text (I.Attrs x) formInput ->
+    i { inputType = I.Text (I.Attrs $ x { helpText = str }) formInput }
+  I.TextArea (I.Attrs x) formInput ->
+    i { inputType = I.TextArea (I.Attrs $ x { helpText = str }) formInput }
+  I.Number (I.Attrs x) formInput ->
+    i { inputType = I.Number (I.Attrs $ x { helpText = str }) formInput }
+  I.Options (I.Attrs x) formInput ->
+    i { inputType = I.Options (I.Attrs $ x { helpText = str }) formInput }
+
+setOptionText :: Int -> String -> InputConfig' -> InputConfig'
+setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
+  I.Options attrs (I.FormInput f@{ input }) ->
+    let new = case input of
+          I.Radio arr -> I.Radio $ fromMaybe arr $ updateAt index (I.TextItem str) arr
+          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
+          otherwise -> input
+     in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
+  otherwise -> i
+
+insertOption :: String -> InputConfig' -> InputConfig'
+insertOption str (InputConfig i) = InputConfig $ case i.inputType of
+  I.Options attrs (I.FormInput f@{ input }) ->
+    let new = case input of
+          I.Radio arr -> I.Radio $ arr <> [ I.TextItem str ]
+          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
+          otherwise -> input
+     in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
+  otherwise -> i
+
+removeOption :: Int -> InputConfig' -> InputConfig'
+removeOption index (InputConfig i) = InputConfig $ case i.inputType of
+  I.Options attrs (I.FormInput f@{ input }) ->
+    let new = case input of
+          I.Radio arr -> I.Radio $ fromMaybe arr $ deleteAt index arr
+          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
+          otherwise -> input
+     in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
+  otherwise -> i
 
 insertValidation :: V.Validate -> InputConfig' -> InputConfig'
-insertValidation v (InputConfig i) = InputConfig $ i { validations = v : filter ((/=) v) i.validations }
+insertValidation v (InputConfig i) = InputConfig $
+  i { validations = v : filter ((/=) v) i.validations }
 
 removeValidation :: V.Validate -> InputConfig' -> InputConfig'
-removeValidation v (InputConfig i) = InputConfig $ i { validations = filter ((/=) v) i.validations }
+removeValidation v (InputConfig i) = InputConfig $
+  i { validations = filter ((/=) v) i.validations }
 
 foldrWithKey :: ∀ k a b. (k -> a -> b -> b) -> b -> Map k a -> b
 foldrWithKey f z =
@@ -331,7 +543,9 @@ foldrWithKey f z =
 
 getFormConfig :: ∀ eff. FormId -> Aff (Effects eff) (Either String FormConfig')
 getFormConfig formId =
-  decodeJson <<< _.response <$> get ("http://localhost:3000/forms/" <> (show <<< unwrap) formId)
+  decodeJson
+  <<< _.response
+  <$> get ("http://localhost:3000/forms/" <> (show <<< unwrap) formId)
 
 saveFormConfig :: ∀ eff. FormConfig' -> Aff (Effects eff) (Either String FormConfig')
 saveFormConfig config =

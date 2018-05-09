@@ -1,42 +1,4 @@
 {
   "forms": [
-    {
-      "inputs": [
-        [
-          0,
-          {
-            "relations": [],
-            "validations": [
-              {
-                "validationType": "Required"
-              }
-            ],
-            "inputType": {
-              "inputAttrs": {
-                "helpText": "Name",
-                "label": "Name"
-              },
-              "inputType": "Text"
-            }
-          }
-        ],
-        [
-          1,
-          {
-            "relations": [],
-            "validations": [],
-            "inputType": {
-              "inputAttrs": {
-                "helpText": "Notes",
-                "label": "Notes"
-              },
-              "inputType": "Text"
-            }
-          }
-        ]
-      ],
-      "supply": 2,
-      "id": 0
-    }
   ]
 }
