@@ -2,16 +2,9 @@ module App.Data.Input.Handler where
 
 import Prelude
 
-import App.Data.Input.Type
-  ( AppInput
-  , Attrs(..)
-  , FormInput(..)
-  , Input(..)
-  , InputOptions(..)
-  , MyItem(..)
-  , OptionItems(..)
-  )
+import App.Data.Input.Type (AppInput, Attrs(..), FormInput(..), Input(..), InputOptions(..), MyItem(..), OptionItems(..))
 import Data.Array (head)
+import Data.Bifunctor (lmap)
 import Data.Either (Either(..), either)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Map as Map
@@ -39,8 +32,7 @@ handleInput :: ∀ v r
 -> InputRef
 -> H.ComponentHTML (Form.Query v AppInput r)
 handleInput st ref = fromMaybe (HH.div_ [])
-  $ renderInput <<< _.inputType <<< unwrap
-  <$> Map.lookup ref (_.inputs $ unwrap st.config)
+  $ renderInput <$> Map.lookup ref st.form
   where
     refStr = show <<< unwrap $ ref
 
@@ -49,13 +41,14 @@ handleInput st ref = fromMaybe (HH.div_ [])
         FormField.field_
         { helpText
         , label
-        , error: Nothing
+        , error: either head (const Nothing) result
         , inputId: refStr
         }
         [ Input.input
           [ HP.attr (HH.AttrName "data-inputref") refStr
           , HP.value input
-          , HE.onBlur $ HE.input_ $ Form.Blur ref
+          , HE.onValueInput $ HE.input $ Form.UpdateValue ref <<< setTextValue
+          , HE.onBlur $ HE.input_ $ Form.Blur ref resetV
           ]
         ]
 
@@ -71,7 +64,8 @@ handleInput st ref = fromMaybe (HH.div_ [])
         [ Input.input
           [ HP.attr (HH.AttrName "data-inputref") refStr
           , HP.value input
-          , HE.onBlur $ HE.input_ $ Form.Blur ref
+          , HE.onValueInput $ HE.input $ Form.UpdateValue ref <<< setTextValue
+          , HE.onBlur $ HE.input_ $ Form.Blur ref resetV
           ]
         ]
 
@@ -89,7 +83,7 @@ handleInput st ref = fromMaybe (HH.div_ [])
               arr # mapWithIndex \i v ->
                 Radio.radio_
                   [ HP.name refStr, HP.checked (if i == 0 then true else false)
-                  , HE.onChange $ HE.input_ $ Form.Blur ref
+                  , HE.onChange $ HE.input_ $ Form.Blur ref resetV
                   ]
                   [ HH.text $ optionItemToStr v ]
           ]
@@ -98,3 +92,23 @@ handleInput st ref = fromMaybe (HH.div_ [])
           $ Options attrs (FormInput { input: Radio arr, result: Left [], validate: true })
         Checkbox arr -> renderInput
           $ Options attrs (FormInput { input: Radio arr, result: Left [], validate: true })
+
+setTextValue :: String -> AppInput -> AppInput
+setTextValue str inputType = case inputType of
+  Text attrs (FormInput f@{ input }) ->
+    Text attrs $ FormInput f { input = str }
+  TextArea attrs (FormInput f@{ input }) ->
+    TextArea attrs $ FormInput f { input = str }
+  Number attrs (FormInput f@{ input }) ->
+    Number attrs $ FormInput f { input = str }
+  other -> inputType
+
+resetV :: AppInput -> AppInput
+resetV inputType = case inputType of
+  Text attrs (FormInput f@{ result }) ->
+    Text attrs $ FormInput f { result = lmap (const []) result }
+  TextArea attrs (FormInput f@{ result }) ->
+    TextArea attrs $ FormInput f { result = lmap (const []) result }
+  Number attrs (FormInput f@{ result }) ->
+    Number attrs $ FormInput f { result = lmap (const []) result }
+  other -> inputType

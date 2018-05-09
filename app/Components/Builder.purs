@@ -52,7 +52,6 @@ data Query a
 -- or overwriting entirely.
 data ArrayAction a
   = Add a
-  -- | Set a
   | Remove a
 
 data AttrField

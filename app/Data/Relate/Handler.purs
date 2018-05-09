@@ -15,6 +15,7 @@ import Lynx.Data.Graph (InputRef)
 handleRelate :: ∀ v i eff m
    . MonadState (Form.State v i Relate) m
   => MonadAff (Form.Effects eff) m
+  => Eq i
   => Relate
   -> InputRef
   -> m Unit
@@ -22,9 +23,9 @@ handleRelate relation refA = case relation of
   Equals refB -> do
     st <- get
     let equal = do
-          v0 <- Map.lookup refA st.form
-          v1 <- Map.lookup refB st.form
-          pure $ v0 == v1
+          c0 <- Map.lookup refA st.form
+          c1 <- Map.lookup refB st.form
+          pure $ c0 == c1
     case equal of
       Just true -> pure unit
       otherwise -> do
