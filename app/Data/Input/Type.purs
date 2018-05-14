@@ -34,10 +34,18 @@ data Input attrs items
 -- Right now compares raw inputs. Not clear this should be the point of comparison.
 -- Could also compare result fields.
 instance eqInput :: Eq items => Eq (Input attrs items) where
-  eq (Text _ (FormInput { input: i0 })) (Text _ (FormInput { input: i1 })) = eq i0 i1
-  eq (TextArea _ (FormInput { input: i0 })) (TextArea _ (FormInput { input: i1 })) = eq i0 i1
-  eq (Number _ (FormInput { input: i0 })) (Number _ (FormInput { input: i1 })) = eq i0 i1
-  eq (Options _ (FormInput { input: i0 })) (Options _ (FormInput { input: i1 })) = eq i0 i1
+  eq (Text _ (FormInput { input: i0 }))
+     (Text _ (FormInput { input: i1 }))
+    = eq i0 i1
+  eq (TextArea _ (FormInput { input: i0 }))
+     (TextArea _ (FormInput { input: i1 }))
+    = eq i0 i1
+  eq (Number _ (FormInput { input: i0 }))
+     (Number _ (FormInput { input: i1 }))
+    = eq i0 i1
+  eq (Options _ (FormInput { input: i0 }))
+     (Options _ (FormInput { input: i1 }))
+    = eq i0 i1
   eq _ _ = false
 
 instance encodeJsonInput

@@ -9,6 +9,7 @@ import App.Data.Relate.Type (Relate) as R
 import App.Data.Validate.Handler (handleValidate) as V
 import App.Data.Validate.Type (Validate(..)) as V
 import Control.Monad.Aff (Aff)
+import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Console (CONSOLE, error)
 import DOM (DOM)
 import DOM.HTML (window)
@@ -69,6 +70,7 @@ type Effects eff =
   ( ajax :: AJAX
   , console :: CONSOLE
   , dom :: DOM
+  , avar :: AVAR
   | eff
   )
 
@@ -204,6 +206,17 @@ component =
             , type_: I.Options
                 (I.Attrs { label: "", helpText: Just "" })
                 (I.FormInput { input: I.Checkbox [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+            }
+          , mkInput
+            { color: "bg-yellow"
+            , icon: "fa fa-align-justify"
+            , label: "Options (Dropdown)"
+            , type_: I.Options
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Dropdown [ ]
                              , result: Left []
                              , validate: false }
                 )
@@ -513,10 +526,12 @@ setOptionText :: Int -> String -> InputConfig' -> InputConfig'
 setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
-          I.Radio arr -> I.Radio $ fromMaybe arr $ updateAt index (I.TextItem str) arr
-          I.Checkbox arr -> I.Checkbox $ fromMaybe arr $ updateAt index (I.TextItem str) arr
-          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> input
+          I.Radio arr ->
+            I.Radio $ fromMaybe arr $ updateAt index (I.TextItem str) arr
+          I.Checkbox arr ->
+            I.Checkbox $ fromMaybe arr $ updateAt index (I.TextItem str) arr
+          I.Dropdown arr ->
+            I.Dropdown $ fromMaybe arr $ updateAt index (I.TextItem str) arr
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
@@ -524,10 +539,12 @@ insertOption :: String -> InputConfig' -> InputConfig'
 insertOption str (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
-          I.Radio arr -> I.Radio $ arr <> [ I.TextItem str ]
-          I.Checkbox arr -> I.Checkbox $ arr <> [ I.TextItem str ]
-          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> input
+          I.Radio arr ->
+            I.Radio $ arr <> [ I.TextItem str ]
+          I.Checkbox arr ->
+            I.Checkbox $ arr <> [ I.TextItem str ]
+          I.Dropdown arr ->
+            I.Dropdown $ arr <> [ I.TextItem str ]
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
@@ -535,10 +552,12 @@ removeOption :: Int -> InputConfig' -> InputConfig'
 removeOption index (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
-          I.Radio arr -> I.Radio $ fromMaybe arr $ deleteAt index arr
-          I.Checkbox arr -> I.Checkbox $ fromMaybe arr $ deleteAt index arr
-          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> input
+          I.Radio arr ->
+            I.Radio $ fromMaybe arr $ deleteAt index arr
+          I.Checkbox arr ->
+            I.Checkbox $ fromMaybe arr $ deleteAt index arr
+          I.Dropdown arr ->
+            I.Dropdown $ fromMaybe arr $ deleteAt index arr
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 

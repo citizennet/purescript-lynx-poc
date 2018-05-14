@@ -47,6 +47,88 @@
       ],
       "supply": 1,
       "id": 1
+    },
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputContents": {
+                "validate": false,
+                "result": {
+                  "tag": "Left",
+                  "value": []
+                },
+                "input": {
+                  "optionItems": [
+                    {
+                      "itemValue": "Hey this is a value",
+                      "itemType": "TextItem"
+                    },
+                    {
+                      "itemValue": "Another one",
+                      "itemType": "TextItem"
+                    }
+                  ],
+                  "optionType": "Checkbox"
+                }
+              },
+              "inputAttrs": {
+                "helpText": "Something",
+                "label": "Checkboxes"
+              },
+              "formInput": "Options"
+            }
+          }
+        ],
+        [
+          1,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputContents": {
+                "validate": false,
+                "result": {
+                  "tag": "Left",
+                  "value": []
+                },
+                "input": {
+                  "optionItems": [
+                    {
+                      "itemValue": "YEA LOOK AT THAT",
+                      "itemType": "TextItem"
+                    },
+                    {
+                      "itemValue": "OH NO NOT LIKE THAT SHIT",
+                      "itemType": "TextItem"
+                    }
+                  ],
+                  "optionType": "Dropdown"
+                }
+              },
+              "inputAttrs": {
+                "helpText": "With some contents",
+                "label": "I am a dropdown"
+              },
+              "formInput": "Options"
+            }
+          }
+        ]
+      ],
+      "supply": 2,
+      "id": 2
     }
   ]
 }

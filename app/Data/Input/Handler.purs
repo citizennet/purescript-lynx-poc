@@ -3,14 +3,14 @@ module App.Data.Input.Handler where
 import Prelude
 
 import App.Data.Input.Type (AppInput, Attrs(..), FormInput(..), Input(..), InputOptions(..), MyItem(..), OptionItems(..))
+import Control.Monad.Aff.Class (class MonadAff)
 import Data.Array (head)
 import Data.Bifunctor (lmap)
-import Data.Either (Either(..), either)
+import Data.Either (either)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
-import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
@@ -19,7 +19,9 @@ import Lynx.Data.Graph (InputRef)
 import Ocelot.Block.Checkbox (checkbox_) as Checkbox
 import Ocelot.Block.FormField as FormField
 import Ocelot.Block.Input as Input
-import Ocelot.Block.Radio (radio_) as Radio
+import Ocelot.Block.Radio as Radio
+import Ocelot.Components.Typeahead as TA
+import Ocelot.Components.Typeahead.Input as TAInput
 
 optionItemToStr :: OptionItems -> String
 optionItemToStr = case _ of
@@ -28,10 +30,11 @@ optionItemToStr = case _ of
 
 -- Remember that this is the render function being passed in, so
 -- we have to set the blur events we want to trigger.
-handleInput :: ∀ v r
- . Form.State v AppInput r
+handleInput :: ∀ v r eff m
+ . MonadAff (Form.Effects eff) m
+=> Form.State v AppInput r
 -> InputRef
--> H.ComponentHTML (Form.Query v AppInput r)
+-> Form.ComponentHTML v AppInput r (Form.Effects eff) m
 handleInput st ref = fromMaybe (HH.div_ [])
   $ renderInput <$> Map.lookup ref st.form
   where
@@ -101,8 +104,16 @@ handleInput st ref = fromMaybe (HH.div_ [])
             ]
             [ HH.text $ optionItemToStr v ]
 
-        Dropdown arr -> renderInput
-          $ Options attrs (FormInput { input: Radio arr, result: Left [], validate: true })
+        Dropdown arr -> fieldset arr $ \i v ->
+          HH.slot unit TA.component
+            ( TAInput.defSingle
+                [ HP.placeholder "Type to search..."
+                , HP.id_ refStr
+                ]
+                []
+                TAInput.renderItemString
+            )
+          ( HE.input $ Form.HandleTypeahead ref )
 
 setTextValue :: String -> AppInput -> AppInput
 setTextValue str inputType = case inputType of
