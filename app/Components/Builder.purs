@@ -197,6 +197,17 @@ component =
                              , validate: false }
                 )
             }
+          , mkInput
+            { color: "bg-yellow"
+            , icon: "fa fa-align-justify"
+            , label: "Options (Checkbox)"
+            , type_: I.Options
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Checkbox [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+            }
           ]
         , HH.div
           [ css "w-1/2 h-screen bg-grey-lightest" ]
@@ -503,6 +514,7 @@ setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
           I.Radio arr -> I.Radio $ fromMaybe arr $ updateAt index (I.TextItem str) arr
+          I.Checkbox arr -> I.Checkbox $ fromMaybe arr $ updateAt index (I.TextItem str) arr
           -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
           otherwise -> input
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
@@ -513,6 +525,7 @@ insertOption str (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
           I.Radio arr -> I.Radio $ arr <> [ I.TextItem str ]
+          I.Checkbox arr -> I.Checkbox $ arr <> [ I.TextItem str ]
           -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
           otherwise -> input
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
@@ -523,6 +536,7 @@ removeOption index (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
           I.Radio arr -> I.Radio $ fromMaybe arr $ deleteAt index arr
+          I.Checkbox arr -> I.Checkbox $ fromMaybe arr $ deleteAt index arr
           -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
           otherwise -> input
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }

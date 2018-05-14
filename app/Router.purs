@@ -2,8 +2,9 @@ module App.Router where
 
 import Prelude
 
-import App.Components.Home as Home
+import Halogen.HTML.Properties as HP
 import App.Components.Builder as Builder
+import App.Components.Home as Home
 import App.Data.Input.Handler as IH
 import App.Data.Input.Type as I
 import App.Data.Relate.Handler as RH
@@ -24,6 +25,7 @@ import Halogen.HTML as HH
 import Lynx.Components.Form as Form
 import Lynx.Data.Graph (FormId(..))
 import Network.HTTP.Affjax (AJAX)
+import Ocelot.Block.Layout as Layout
 import Routing.Match (Match)
 import Routing.Match.Class (end, int, lit, root)
 
@@ -85,18 +87,21 @@ component =
         HH.slot' CP.cp3 unit Home.component unit (const Nothing)
 
       Form formId ->
-        -- Look up formId and load that configuration with handleX functions
-        HH.slot'
-          CP.cp1
-          unit
-          ( Form.component
-            { handleValidate: VH.handleValidate
-            , handleInput: IH.handleInput
-            , handleRelate: RH.handleRelate
-            }
-          )
-          (Right formId)
-          (const Nothing)
+        Layout.container
+          [ HP.attr (H.AttrName "style") "max-width:40rem;" ]
+          [ -- Look up formId and load that configuration with handleX functions
+            HH.slot'
+              CP.cp1
+              unit
+              ( Form.component
+                { handleValidate: VH.handleValidate
+                , handleInput: IH.handleInput
+                , handleRelate: RH.handleRelate
+                }
+              )
+              (Right formId)
+              (const Nothing)
+          ]
 
       Builder formId ->
         HH.slot' CP.cp2 unit Builder.component formId (const Nothing)

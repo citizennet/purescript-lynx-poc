@@ -5,12 +5,13 @@ import Prelude
 import Data.Argonaut (jsonEmptyObject)
 import Data.Argonaut.Decode (decodeJson, (.?), (.??), (.?=))
 import Data.Argonaut.Decode.Class (class DecodeJson)
-import Data.Argonaut.Encode (encodeJson, (:=), (~>))
+import Data.Argonaut.Encode ((:=), (~>))
 import Data.Argonaut.Encode.Class (class EncodeJson)
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Eq (genericEq)
 import Data.Maybe (Maybe(..))
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 
 -- For convenience.
@@ -45,24 +46,24 @@ instance encodeJsonInput
   where
   encodeJson i = case i of
     Text attrs input ->
-      "inputType" := "Text"
-      ~> "inputAttrs" := encodeJson attrs
-      ~> "inputContents" := encodeJson input
+     "formInput" := "Text"
+      ~> "inputAttrs" := attrs
+      ~> "inputContents" := input
       ~> jsonEmptyObject
     TextArea attrs input ->
-      "inputType" := "TextArea"
-      ~> "inputAttrs" := encodeJson attrs
-      ~> "inputContents" := encodeJson input
+      "formInput" := "TextArea"
+      ~> "inputAttrs" := attrs
+      ~> "inputContents" := input
       ~> jsonEmptyObject
     Number attrs input ->
-      "inputType" := "Number"
-      ~> "inputAttrs" := encodeJson attrs
-      ~> "inputContents" := encodeJson input
+      "formInput" := "Number"
+      ~> "inputAttrs" := attrs
+      ~> "inputContents" := input
       ~> jsonEmptyObject
     Options attrs input ->
-      "inputType" := "Options"
-      ~> "inputAttrs" := encodeJson attrs
-      ~> "inputContents" := encodeJson input
+      "formInput" := "Options"
+      ~> "inputAttrs" := attrs
+      ~> "inputContents" := input
       ~> jsonEmptyObject
 
 instance decodeJsonInput
@@ -71,7 +72,7 @@ instance decodeJsonInput
   where
   decodeJson json = do
     obj <- decodeJson json
-    type' <- obj .? "inputType"
+    type' <- obj .? "formInput"
     attrs <- obj .? "inputAttrs"
     case type' of
       "Text" -> do
@@ -101,9 +102,9 @@ instance encodeJsonFormInput
   => EncodeJson (FormInput i o)
   where
     encodeJson (FormInput { input, result, validate }) =
-      "input" := encodeJson input
-      ~> "result" := encodeJson result
-      ~> "validate" := encodeJson validate
+      "input" := input
+      ~> "result" := result
+      ~> "validate" := validate
       ~> jsonEmptyObject
 
 instance decodeJsonFormInput
@@ -130,8 +131,8 @@ instance eqInputOptions :: Eq items => Eq (InputOptions items) where
 
 instance encodeJsonInputOptions :: EncodeJson items => EncodeJson (InputOptions items) where
   encodeJson i =
-    "optionType" := encodeJson type'
-    ~> "optionItems" := encodeJson items
+    "optionType" := type'
+    ~> "optionItems" := items
     ~> jsonEmptyObject
     where
       (Tuple type' items) = case i of
@@ -143,7 +144,7 @@ instance decodeJsonInputOptions :: DecodeJson items => DecodeJson (InputOptions 
   decodeJson json = do
     obj <- decodeJson json
     type' <- obj .? "optionType"
-    items <- obj .? "optionItems"
+    items <- traverse decodeJson =<< obj .? "optionItems"
     case type' of
       "Radio" -> pure $ Radio items
       "Dropdown" -> pure $ Dropdown items
@@ -160,8 +161,8 @@ instance eqOptionItems :: Eq OptionItems where
 
 instance encodeJsonOptionItems :: EncodeJson OptionItems where
   encodeJson i =
-    "itemType" := encodeJson typ
-    ~> "itemValue" := encodeJson val
+    "itemType" := typ
+    ~> "itemValue" := val
     ~> jsonEmptyObject
     where
       (Tuple typ val) = case i of

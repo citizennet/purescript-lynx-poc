@@ -16,7 +16,6 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Traversable (traverse_)
-import Debug.Trace (spy)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -69,7 +68,7 @@ inputAp f ref orig
   where
     new = do
       type' <- Map.lookup ref orig
-      pure $ Map.insert ref (spy $ f type') orig
+      pure $ Map.insert ref (f type') orig
 
 component :: ∀ v i r eff
    . DecodeJson v
@@ -128,9 +127,12 @@ component { handleInput, handleValidate, handleRelate } =
            _.response <$> get ("http://localhost:3000/forms/" <> (show $ unwrap i))
         case decodeJson res of
           Left s -> H.liftAff $ Console.log s *> pure a
-          Right form -> do
-             H.modify _ { form = form }
-             pure a
+          Right config -> do
+            H.modify _
+              { config = config
+              , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
+              }
+            pure a
 
       UpdateValue ref func a -> a <$ do
         H.modify \st -> st { form = inputAp func ref st.form }

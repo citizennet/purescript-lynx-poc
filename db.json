@@ -1,4 +1,52 @@
 {
   "forms": [
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [
+              {
+                "validationType": "Required"
+              }
+            ],
+            "inputType": {
+              "inputContents": {
+                "validate": false,
+                "result": {
+                  "tag": "Left",
+                  "value": []
+                },
+                "input": {
+                  "optionItems": [
+                    {
+                      "itemValue": "1",
+                      "itemType": "TextItem"
+                    },
+                    {
+                      "itemValue": "2",
+                      "itemType": "TextItem"
+                    },
+                    {
+                      "itemValue": "3",
+                      "itemType": "TextItem"
+                    }
+                  ],
+                  "optionType": "Checkbox"
+                }
+              },
+              "inputAttrs": {
+                "helpText": "oe",
+                "label": "aoeu"
+              },
+              "formInput": "Options"
+            }
+          }
+        ]
+      ],
+      "supply": 1,
+      "id": 1
+    }
   ]
 }

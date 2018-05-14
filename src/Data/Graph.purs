@@ -11,6 +11,7 @@ import Data.Map (Map)
 import Data.Map as Map
 import Data.Newtype (class Newtype, wrap)
 import Data.Traversable (traverse)
+import Debug.Trace (spy)
 
 ----------
 -- Form
@@ -101,7 +102,7 @@ instance decodeJsonInputConfig :: (DecodeJson v, DecodeJson i, DecodeJson r) => 
     validations <- traverse decodeJson =<< obj .? "validations"
     relations <- traverse decodeJson =<< obj .? "relations"
     inputType <- obj .? "inputType"
-    pure $ InputConfig { inputType, relations, validations }
+    pure $ spy $ InputConfig { inputType, relations, validations }
 
 instance encodeJsonInputConfig :: (EncodeJson v, EncodeJson i, EncodeJson r) => EncodeJson (InputConfig v i r) where
   encodeJson (InputConfig { inputType, validations, relations }) = do

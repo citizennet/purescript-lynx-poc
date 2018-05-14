@@ -16,6 +16,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Form
 import Lynx.Data.Graph (InputRef)
+import Ocelot.Block.Checkbox (checkbox_) as Checkbox
 import Ocelot.Block.FormField as FormField
 import Ocelot.Block.Input as Input
 import Ocelot.Block.Radio (radio_) as Radio
@@ -71,26 +72,36 @@ handleInput st ref = fromMaybe (HH.div_ [])
 
       Options
         attrs@(Attrs { helpText, label })
-        (FormInput { input, result }) -> case input of
-        Radio arr ->
-          FormField.fieldset_
-          { label
-          , helpText
-          , inputId: refStr
-          , error: either head (const Nothing) result
-          }
-          [ HH.div_ $
-              arr # mapWithIndex \i v ->
-                Radio.radio_
-                  [ HP.name refStr, HP.checked (if i == 0 then true else false)
-                  , HE.onChange $ HE.input_ $ Form.Blur ref resetV
-                  ]
-                  [ HH.text $ optionItemToStr v ]
-          ]
+        (FormInput { input, result })
+        ->
+      let fieldset arr block = FormField.fieldset_
+            { label
+            , helpText
+            , inputId: refStr
+            , error: either head (const Nothing) result
+            }
+            [ HH.div_ $
+                arr # mapWithIndex \i v -> block i v
+            ]
+
+       in case input of
+        Radio arr -> fieldset arr $ \i v ->
+          Radio.radio_
+            [ HP.name refStr
+            , HP.checked (if i == 0 then true else false)
+            , HE.onChange $ HE.input_ $ Form.Blur ref resetV
+            ]
+            [ HH.text $ optionItemToStr v ]
+
+        Checkbox arr -> fieldset arr $ \i v ->
+          Checkbox.checkbox_
+            [ HP.name refStr
+            , HP.checked false
+            , HE.onChange $ HE.input_ $ Form.Blur ref resetV
+            ]
+            [ HH.text $ optionItemToStr v ]
 
         Dropdown arr -> renderInput
-          $ Options attrs (FormInput { input: Radio arr, result: Left [], validate: true })
-        Checkbox arr -> renderInput
           $ Options attrs (FormInput { input: Radio arr, result: Left [], validate: true })
 
 setTextValue :: String -> AppInput -> AppInput
