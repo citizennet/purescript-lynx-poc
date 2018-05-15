@@ -113,12 +113,12 @@ component { handleInput, handleValidate, handleRelate } =
       Left config ->
         { form: (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
         , config
-        , selectedForm: FormId 0
+        , selectedForm: FormId (-1)
         , fromDB: false
         }
       Right formId ->
         { config: FormConfig
-          { id: FormId 0
+          { id: FormId (-1)
           , supply: 0
           , inputs: Map.empty
           }
@@ -143,6 +143,7 @@ component { handleInput, handleValidate, handleRelate } =
           , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
           }
         pure a
+
       Receiver (Right _) a -> pure a
 
       GetForm i a -> a <$ do

@@ -30,7 +30,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Lynx.Components.Form as Component
+import Lynx.Components.Form as Form
 import Lynx.Data.Graph (FormConfig(..), FormId, InputConfig(..), InputRef(..))
 import Network.HTTP.Affjax (AJAX, get, post)
 import Ocelot.Block.Button as Button
@@ -74,7 +74,7 @@ type Effects eff =
   | eff
   )
 
-type ChildQuery = Component.Query V.Validate I.AppInput R.Relate
+type ChildQuery = Form.Query V.Validate I.AppInput R.Relate
 type ChildSlot = Unit
 
 component
@@ -233,7 +233,7 @@ component =
           [ css "w-1/4 h-screen bg-grey-lightest" ]
           [ HH.slot
               unit
-              (Component.component
+              (Form.component
                 { handleInput: handleInput
                 , handleValidate: V.handleValidate
                 , handleRelate: R.handleRelate
@@ -435,14 +435,31 @@ component =
                             , HH.button
                               [ HE.onClick
                                 $ HE.input_
-                                $ ChangeOptions k (Remove $ Tuple i (optionItemToStr v))
+                                $ ChangeOptions k
+                                  ( Remove $ Tuple i (optionItemToStr v) )
+                              ]
+                              [ HH.text "Remove" ]
+                            ]
+
+                          f' arr = flip mapWithIndex arr $ \i v ->
+                            HH.div_
+                            [ Input.input
+                                [ HP.value v
+                                , HE.onValueInput $ HE.input $ \str ->
+                                    UpdateOptValue k i str
+                                ]
+                            , HH.button
+                              [ HE.onClick
+                                $ HE.input_
+                                $ ChangeOptions k
+                                  ( Remove $ Tuple i v )
                               ]
                               [ HH.text "Remove" ]
                             ]
                        in case opts of
                          I.Radio arr -> f arr
-                         I.Dropdown arr -> f arr
                          I.Checkbox arr -> f arr
+                         I.Dropdown arr -> f' arr
                   ]
                 , FormField.field_
                   { helpText: Nothing
@@ -531,7 +548,7 @@ setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
           I.Checkbox arr ->
             I.Checkbox $ fromMaybe arr $ updateAt index (I.TextItem str) arr
           I.Dropdown arr ->
-            I.Dropdown $ fromMaybe arr $ updateAt index (I.TextItem str) arr
+            I.Dropdown $ fromMaybe arr $ updateAt index str arr
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
@@ -544,7 +561,7 @@ insertOption str (InputConfig i) = InputConfig $ case i.inputType of
           I.Checkbox arr ->
             I.Checkbox $ arr <> [ I.TextItem str ]
           I.Dropdown arr ->
-            I.Dropdown $ arr <> [ I.TextItem str ]
+            I.Dropdown $ arr <> [ str ]
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 

@@ -104,16 +104,23 @@ handleInput st ref = fromMaybe (HH.div_ [])
             ]
             [ HH.text $ optionItemToStr v ]
 
-        Dropdown arr -> fieldset arr $ \i v ->
-          HH.slot unit TA.component
-            ( TAInput.defSingle
+        Dropdown arr ->
+          FormField.fieldset_
+            { label
+            , helpText
+            , inputId: refStr
+            , error: either head (const Nothing) result
+            }
+            [ HH.slot unit TA.component
+              ( TAInput.defSingle
                 [ HP.placeholder "Type to search..."
                 , HP.id_ refStr
                 ]
-                []
+                arr
                 TAInput.renderItemString
-            )
-          ( HE.input $ Form.HandleTypeahead ref )
+              )
+              ( HE.input $ Form.HandleTypeahead ref )
+            ]
 
 setTextValue :: String -> AppInput -> AppInput
 setTextValue str inputType = case inputType of

@@ -130,8 +130,8 @@ instance decodeJsonFormInput
 -- level unified constructor for all possible 'items' we'll support.
 data InputOptions items
   = Radio    (Array items)
-  | Dropdown (Array items)
   | Checkbox (Array items)
+  | Dropdown (Array String)
 
 derive instance genericInputOptions :: Generic (InputOptions items) _
 instance eqInputOptions :: Eq items => Eq (InputOptions items) where
@@ -139,24 +139,34 @@ instance eqInputOptions :: Eq items => Eq (InputOptions items) where
 
 instance encodeJsonInputOptions :: EncodeJson items => EncodeJson (InputOptions items) where
   encodeJson i =
-    "optionType" := type'
-    ~> "optionItems" := items
-    ~> jsonEmptyObject
-    where
-      (Tuple type' items) = case i of
-        Radio arr    -> Tuple "Radio" arr
-        Dropdown arr -> Tuple "Dropdown" arr
-        Checkbox arr -> Tuple "Checkbox" arr
+    case i of
+      Radio arr ->
+        "optionType" := "Radio"
+        ~> "optionItems" := arr
+        ~> jsonEmptyObject
+      Checkbox arr ->
+        "optionType" := "Checkbox"
+        ~> "optionItems" := arr
+        ~> jsonEmptyObject
+      Dropdown arr ->
+        "optionType" := "Dropdown"
+        ~> "optionItems" := arr
+        ~> jsonEmptyObject
 
 instance decodeJsonInputOptions :: DecodeJson items => DecodeJson (InputOptions items) where
   decodeJson json = do
     obj <- decodeJson json
     type' <- obj .? "optionType"
-    items <- traverse decodeJson =<< obj .? "optionItems"
     case type' of
-      "Radio" -> pure $ Radio items
-      "Dropdown" -> pure $ Dropdown items
-      "Checkbox" -> pure $ Checkbox items
+      "Radio" -> do
+         items <- traverse decodeJson =<< obj .? "optionItems"
+         pure $ Radio items
+      "Checkbox" -> do
+         items <- traverse decodeJson =<< obj .? "optionItems"
+         pure $ Checkbox items
+      "Dropdown" -> do
+         items <- traverse decodeJson =<< obj .? "optionItems"
+         pure $ Dropdown items
       _ -> Left $ "No decoder written for case " <> type'
 
 data OptionItems

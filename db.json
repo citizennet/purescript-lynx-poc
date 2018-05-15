@@ -20,25 +20,16 @@
                 },
                 "input": {
                   "optionItems": [
-                    {
-                      "itemValue": "1",
-                      "itemType": "TextItem"
-                    },
-                    {
-                      "itemValue": "2",
-                      "itemType": "TextItem"
-                    },
-                    {
-                      "itemValue": "3",
-                      "itemType": "TextItem"
-                    }
+                    "Yes",
+                    "No",
+                    "Maybe"
                   ],
-                  "optionType": "Checkbox"
+                  "optionType": "Dropdown"
                 }
               },
               "inputAttrs": {
-                "helpText": "oe",
-                "label": "aoeu"
+                "helpText": "Say yes or no bro",
+                "label": "Bluefin Tuna"
               },
               "formInput": "Options"
             }
@@ -68,66 +59,24 @@
                 },
                 "input": {
                   "optionItems": [
-                    {
-                      "itemValue": "Hey this is a value",
-                      "itemType": "TextItem"
-                    },
-                    {
-                      "itemValue": "Another one",
-                      "itemType": "TextItem"
-                    }
-                  ],
-                  "optionType": "Checkbox"
-                }
-              },
-              "inputAttrs": {
-                "helpText": "Something",
-                "label": "Checkboxes"
-              },
-              "formInput": "Options"
-            }
-          }
-        ],
-        [
-          1,
-          {
-            "relations": [],
-            "validations": [
-              {
-                "validationType": "Required"
-              }
-            ],
-            "inputType": {
-              "inputContents": {
-                "validate": false,
-                "result": {
-                  "tag": "Left",
-                  "value": []
-                },
-                "input": {
-                  "optionItems": [
-                    {
-                      "itemValue": "YEA LOOK AT THAT",
-                      "itemType": "TextItem"
-                    },
-                    {
-                      "itemValue": "OH NO NOT LIKE THAT SHIT",
-                      "itemType": "TextItem"
-                    }
+                    "Yes",
+                    "No",
+                    "Maybe",
+                    "oeuoeu"
                   ],
                   "optionType": "Dropdown"
                 }
               },
               "inputAttrs": {
-                "helpText": "With some contents",
-                "label": "I am a dropdown"
+                "helpText": "Say yes or no bro",
+                "label": "Bluefin Tuna"
               },
               "formInput": "Options"
             }
           }
         ]
       ],
-      "supply": 2,
+      "supply": 1,
       "id": 2
     }
   ]
