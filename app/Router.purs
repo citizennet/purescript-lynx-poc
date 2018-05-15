@@ -2,7 +2,6 @@ module App.Router where
 
 import Prelude
 
-import Halogen.HTML.Properties as HP
 import App.Components.Builder as Builder
 import App.Components.Home as Home
 import App.Data.Input.Handler as IH
@@ -12,6 +11,7 @@ import App.Data.Relate.Type as R
 import App.Data.Validate.Handler as VH
 import App.Data.Validate.Type as V
 import Control.Monad.Aff (Aff)
+import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Console (CONSOLE)
 import DOM (DOM)
 import Data.Either (Either(..))
@@ -22,6 +22,7 @@ import Data.Maybe (Maybe(..))
 import Halogen as H
 import Halogen.Component.ChildPath as CP
 import Halogen.HTML as HH
+import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Form
 import Lynx.Data.Graph (FormId(..))
 import Network.HTTP.Affjax (AJAX)
@@ -68,7 +69,13 @@ type ChildQuery = Coproduct3
 type ChildSlot = Either3 Unit Unit Unit
 
 
-type Effects eff = ( dom :: DOM, ajax :: AJAX, console :: CONSOLE | eff )
+type Effects eff =
+  ( dom :: DOM
+  , ajax :: AJAX
+  , console :: CONSOLE
+  , avar :: AVAR
+  | eff
+  )
 
 component :: ∀ e. H.Component HH.HTML Query Input Void (Aff (Effects e))
 component =

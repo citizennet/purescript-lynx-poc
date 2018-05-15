@@ -2,18 +2,19 @@ module Lynx.Components.Form where
 
 import Prelude
 
-import Control.Monad.Aff (Aff)
+import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Console (CONSOLE)
 import Control.Monad.Aff.Console as Console
 import Control.Monad.State.Class (class MonadState)
+import DOM (DOM)
 import Data.Argonaut (class DecodeJson, Json, decodeJson)
 import Data.Array (fromFoldable) as Array
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
 import Data.Map (Map)
 import Data.Map as Map
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap)
 import Data.Traversable (traverse_)
 import Halogen as H
@@ -21,21 +22,23 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Lynx.Data.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
 import Network.HTTP.Affjax (AJAX, get)
+import Ocelot.Components.Typeahead as TA
 
 -- `i` is the Input type
 data Query v i r a
-  = UpdateValue InputRef (i -> i) a
+  = HandleTypeahead InputRef (TA.Message (Query v i r) String) a
+  | UpdateValue InputRef (i -> i) a
   | Blur InputRef (i -> i) a -- reset function
-  | Submit a
   | GetForm FormId a
+  | Submit a
   | Initialize a
   | Receiver (Input v i r) a
 
-type ComponentConfig v i r eff =
+type ComponentConfig v i r eff m =
   { handleInput
     :: State v i r
     -> InputRef
-    -> H.ComponentHTML (Query v i r)
+    -> ComponentHTML v i r eff m
   , handleValidate
     :: v
     -> i
@@ -43,7 +46,7 @@ type ComponentConfig v i r eff =
   , handleRelate
     :: r
     -> InputRef
-    -> H.ComponentDSL (State v i r) (Query v i r) Message (Aff eff) Unit
+    -> ComponentDSL v i r eff m Unit
   }
 
 type Input v i r = Either (FormConfig v i r) FormId
@@ -60,6 +63,8 @@ type State v i r =
 type Effects eff =
   ( console :: CONSOLE
   , ajax :: AJAX
+  , dom :: DOM
+  , avar :: AVAR
   | eff )
 
 inputAp :: ∀ i. (i -> i) -> InputRef -> Map InputRef i -> Map InputRef i
@@ -70,14 +75,32 @@ inputAp f ref orig
       type' <- Map.lookup ref orig
       pure $ Map.insert ref (f type') orig
 
-component :: ∀ v i r eff
+
+----------
+-- Component Types
+
+type Component v i r m
+  = H.Component HH.HTML (Query v i r) (Input v i r) Message m
+
+type ComponentHTML v i r eff m
+  = H.ParentHTML (Query v i r) (ChildQuery v i r eff m) ChildSlot m
+
+type ComponentDSL v i r eff m
+  = H.ParentDSL (State v i r) (Query v i r) (ChildQuery v i r eff m) ChildSlot Message m
+
+type ChildSlot = Unit
+type ChildQuery v i r eff m
+  = TA.Query (Query v i r) String String eff m
+
+component :: ∀ v i r eff m
    . DecodeJson v
   => DecodeJson i
   => DecodeJson r
-  => ComponentConfig v i r (Effects eff)
-  -> H.Component HH.HTML (Query v i r) (Input v i r) Message (Aff (Effects eff))
+  => MonadAff (Effects eff) m
+  => ComponentConfig v i r (Effects eff) m
+  -> Component v i r m
 component { handleInput, handleValidate, handleRelate } =
-  H.lifecycleComponent
+  H.lifecycleParentComponent
     { initialState
     , render
     , eval
@@ -90,12 +113,12 @@ component { handleInput, handleValidate, handleRelate } =
       Left config ->
         { form: (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
         , config
-        , selectedForm: FormId 0
+        , selectedForm: FormId (-1)
         , fromDB: false
         }
       Right formId ->
         { config: FormConfig
-          { id: FormId 0
+          { id: FormId (-1)
           , supply: 0
           , inputs: Map.empty
           }
@@ -106,7 +129,7 @@ component { handleInput, handleValidate, handleRelate } =
 
     eval
       :: Query v i r
-      ~> H.ComponentDSL (State v i r) (Query v i r) Message (Aff (Effects eff))
+      ~> ComponentDSL v i r (Effects eff) m
     eval = case _ of
       Initialize a -> do
         state <- H.get
@@ -120,6 +143,7 @@ component { handleInput, handleValidate, handleRelate } =
           , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
           }
         pure a
+
       Receiver (Right _) a -> pure a
 
       GetForm i a -> a <$ do
@@ -134,18 +158,33 @@ component { handleInput, handleValidate, handleRelate } =
               }
             pure a
 
+      HandleTypeahead ref m a -> case m of
+        TA.Emit q -> eval q *> pure a
+        TA.Searched _ -> pure a
+        TA.SelectionsChanged _ _ items -> do
+          -- Update the input with the new array
+          let arr = case items of
+               TA.Many xs -> xs
+               TA.Limit _ xs -> xs
+               TA.One x -> maybe [] pure x
+          pure a
+        TA.VisibilityChanged v -> pure a
+
       UpdateValue ref func a -> a <$ do
         H.modify \st -> st { form = inputAp func ref st.form }
 
-      Blur ref f a -> a <$ do
+      Blur ref f a -> do
         runRelations ref handleRelate
         runValidations ref f handleValidate
+        pure a
 
       Submit a -> a <$ do
         refs <- H.gets (Map.keys <<< _.form)
         traverse_ (flip runRelations $ handleRelate) refs
 
-    render :: State v i r -> H.ComponentHTML (Query v i r)
+    render
+      :: State v i r
+      -> ComponentHTML v i r (Effects eff) m
     render st = HH.div_
       [ HH.div_
         $ Array.fromFoldable
@@ -161,7 +200,14 @@ runValidations :: ∀ eff v i r m
  => InputRef
  -> (i -> i) -- reset
  -> (v -> i -> i)
- -> H.ComponentDSL (State v i r) (Query v i r) Message m Unit
+ -> H.ParentDSL
+      (State v i r)
+      (Query v i r)
+      (ChildQuery v i r (Effects eff) m)
+      ChildSlot
+      Message
+      m
+      Unit
 runValidations ref reset validate = do
   st <- H.get
   case Map.lookup ref (_.inputs $ unwrap st.config) of

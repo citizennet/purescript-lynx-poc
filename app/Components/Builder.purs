@@ -9,6 +9,7 @@ import App.Data.Relate.Type (Relate) as R
 import App.Data.Validate.Handler (handleValidate) as V
 import App.Data.Validate.Type (Validate(..)) as V
 import Control.Monad.Aff (Aff)
+import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Console (CONSOLE, error)
 import DOM (DOM)
 import DOM.HTML (window)
@@ -29,7 +30,7 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
-import Lynx.Components.Form as Component
+import Lynx.Components.Form as Form
 import Lynx.Data.Graph (FormConfig(..), FormId, InputConfig(..), InputRef(..))
 import Network.HTTP.Affjax (AJAX, get, post)
 import Ocelot.Block.Button as Button
@@ -69,10 +70,11 @@ type Effects eff =
   ( ajax :: AJAX
   , console :: CONSOLE
   , dom :: DOM
+  , avar :: AVAR
   | eff
   )
 
-type ChildQuery = Component.Query V.Validate I.AppInput R.Relate
+type ChildQuery = Form.Query V.Validate I.AppInput R.Relate
 type ChildSlot = Unit
 
 component
@@ -208,6 +210,17 @@ component =
                              , validate: false }
                 )
             }
+          , mkInput
+            { color: "bg-yellow"
+            , icon: "fa fa-align-justify"
+            , label: "Options (Dropdown)"
+            , type_: I.Options
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Dropdown [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+            }
           ]
         , HH.div
           [ css "w-1/2 h-screen bg-grey-lightest" ]
@@ -220,7 +233,7 @@ component =
           [ css "w-1/4 h-screen bg-grey-lightest" ]
           [ HH.slot
               unit
-              (Component.component
+              (Form.component
                 { handleInput: handleInput
                 , handleValidate: V.handleValidate
                 , handleRelate: R.handleRelate
@@ -422,14 +435,31 @@ component =
                             , HH.button
                               [ HE.onClick
                                 $ HE.input_
-                                $ ChangeOptions k (Remove $ Tuple i (optionItemToStr v))
+                                $ ChangeOptions k
+                                  ( Remove $ Tuple i (optionItemToStr v) )
+                              ]
+                              [ HH.text "Remove" ]
+                            ]
+
+                          f' arr = flip mapWithIndex arr $ \i v ->
+                            HH.div_
+                            [ Input.input
+                                [ HP.value v
+                                , HE.onValueInput $ HE.input $ \str ->
+                                    UpdateOptValue k i str
+                                ]
+                            , HH.button
+                              [ HE.onClick
+                                $ HE.input_
+                                $ ChangeOptions k
+                                  ( Remove $ Tuple i v )
                               ]
                               [ HH.text "Remove" ]
                             ]
                        in case opts of
                          I.Radio arr -> f arr
-                         I.Dropdown arr -> f arr
                          I.Checkbox arr -> f arr
+                         I.Dropdown arr -> f' arr
                   ]
                 , FormField.field_
                   { helpText: Nothing
@@ -513,10 +543,12 @@ setOptionText :: Int -> String -> InputConfig' -> InputConfig'
 setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
-          I.Radio arr -> I.Radio $ fromMaybe arr $ updateAt index (I.TextItem str) arr
-          I.Checkbox arr -> I.Checkbox $ fromMaybe arr $ updateAt index (I.TextItem str) arr
-          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> input
+          I.Radio arr ->
+            I.Radio $ fromMaybe arr $ updateAt index (I.TextItem str) arr
+          I.Checkbox arr ->
+            I.Checkbox $ fromMaybe arr $ updateAt index (I.TextItem str) arr
+          I.Dropdown arr ->
+            I.Dropdown $ fromMaybe arr $ updateAt index str arr
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
@@ -524,10 +556,12 @@ insertOption :: String -> InputConfig' -> InputConfig'
 insertOption str (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
-          I.Radio arr -> I.Radio $ arr <> [ I.TextItem str ]
-          I.Checkbox arr -> I.Checkbox $ arr <> [ I.TextItem str ]
-          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> input
+          I.Radio arr ->
+            I.Radio $ arr <> [ I.TextItem str ]
+          I.Checkbox arr ->
+            I.Checkbox $ arr <> [ I.TextItem str ]
+          I.Dropdown arr ->
+            I.Dropdown $ arr <> [ str ]
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
@@ -535,10 +569,12 @@ removeOption :: Int -> InputConfig' -> InputConfig'
 removeOption index (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
     let new = case input of
-          I.Radio arr -> I.Radio $ fromMaybe arr $ deleteAt index arr
-          I.Checkbox arr -> I.Checkbox $ fromMaybe arr $ deleteAt index arr
-          -- TODO: TEMPORARY UNTIL OTHER INPUTS COMPLETE
-          otherwise -> input
+          I.Radio arr ->
+            I.Radio $ fromMaybe arr $ deleteAt index arr
+          I.Checkbox arr ->
+            I.Checkbox $ fromMaybe arr $ deleteAt index arr
+          I.Dropdown arr ->
+            I.Dropdown $ fromMaybe arr $ deleteAt index arr
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 

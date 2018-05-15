@@ -96,7 +96,8 @@ derive instance genericInputConfig :: Generic (InputConfig v i r) _
 instance showInputConfig :: (Show v, Show i, Show r) => Show (InputConfig v i r) where
   show = genericShow
 
-instance decodeJsonInputConfig :: (DecodeJson v, DecodeJson i, DecodeJson r) => DecodeJson (InputConfig v i r) where
+instance decodeJsonInputConfig
+  :: (DecodeJson v, DecodeJson i, DecodeJson r) => DecodeJson (InputConfig v i r) where
   decodeJson json = do
     obj <- decodeJson json
     validations <- traverse decodeJson =<< obj .? "validations"
@@ -104,7 +105,8 @@ instance decodeJsonInputConfig :: (DecodeJson v, DecodeJson i, DecodeJson r) => 
     inputType <- obj .? "inputType"
     pure $ spy $ InputConfig { inputType, relations, validations }
 
-instance encodeJsonInputConfig :: (EncodeJson v, EncodeJson i, EncodeJson r) => EncodeJson (InputConfig v i r) where
+instance encodeJsonInputConfig
+  :: (EncodeJson v, EncodeJson i, EncodeJson r) => EncodeJson (InputConfig v i r) where
   encodeJson (InputConfig { inputType, validations, relations }) = do
     "inputType" := inputType
     ~> "validations" := (encodeJson <$> validations)
