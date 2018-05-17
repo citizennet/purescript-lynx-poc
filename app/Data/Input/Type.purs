@@ -2,7 +2,7 @@ module App.Data.Input.Type where
 
 import Prelude
 
-import Data.Argonaut (jsonEmptyObject)
+import Data.Argonaut (jsonEmptyObject, jsonNull)
 import Data.Argonaut.Decode (decodeJson, (.?), (.??), (.?=))
 import Data.Argonaut.Decode.Class (class DecodeJson)
 import Data.Argonaut.Encode ((:=), (~>))
@@ -66,28 +66,28 @@ instance encodeJsonInput
      "formInput" := "Text"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
-      --  ~> "foreignData" := jsonNull
+      ~> "foreignData" := jsonNull
       ~> jsonEmptyObject
     TextArea attrs input ->
       "formInput" := "TextArea"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
-      --  ~> "foreignData" := jsonNull
+      ~> "foreignData" := jsonNull
       ~> jsonEmptyObject
     Number attrs input ->
       "formInput" := "Number"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
-      --  ~> "foreignData" := jsonNull
+      ~> "foreignData" := jsonNull
       ~> jsonEmptyObject
     Options attrs input ->
       "formInput" := "Options"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
-      --  ~> "foreignData" := jsonNull
+      ~> "foreignData" := jsonNull
       ~> jsonEmptyObject
     OptionsForeign attrs input data_ ->
-      "formInput" := "Options"
+      "formInput" := "OptionsForeign"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
       ~> "foreignData" := data_

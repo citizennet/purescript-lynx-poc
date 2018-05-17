@@ -4,14 +4,16 @@ import Prelude
 
 import Control.Monad.Aff (Aff)
 import Data.Argonaut (JArray, JObject, Json, foldJson, toArray, toString)
-import Data.Array (uncons, (!!))
-import Data.Either (Either(..), note)
+import Data.Array (concatMap, uncons, (!!))
+import Data.Either (Either(..), either, note)
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Eq (genericEq)
 import Data.Generic.Rep.Show (genericShow)
-import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
+import Data.Int (fromString) as Int
+import Data.Maybe (Maybe(..), maybe)
+import Data.Newtype (class Newtype, unwrap)
 import Data.StrMap as StrMap
+import Data.String (Pattern(..), joinWith, split)
 import Data.Traversable (traverse)
 import Network.HTTP.Affjax (AJAX, get)
 import Network.RemoteData (RemoteData, fromEither)
@@ -32,13 +34,32 @@ instance eqArrayKeys :: Eq ArrayKeys where
 instance showArrayKeys :: Show ArrayKeys where
   show = genericShow
 
+renderArrayKeys :: ArrayKeys -> String
+renderArrayKeys = joinWith ", " <<< map (either show id) <<< unwrap
+
+readArrayKeys :: String -> ArrayKeys
+readArrayKeys = ArrayKeys <<< readKeys
+
 newtype ItemKeys = ItemKeys (Array (Either Int String))
-derive instance newtypeItemKeys :: Newtype ArrayKeys _
+derive instance newtypeItemKeys :: Newtype ItemKeys _
 derive instance genericItemKeys :: Generic ItemKeys _
 instance eqItemKeys :: Eq ItemKeys where
   eq = genericEq
 instance showItemKeys :: Show ItemKeys where
   show = genericShow
+
+renderItemKeys :: ItemKeys -> String
+renderItemKeys = joinWith ", " <<< map (either show id) <<< unwrap
+
+readItemKeys :: String -> ItemKeys
+readItemKeys = ItemKeys <<< readKeys
+
+readKeys :: String -> Array (Either Int String)
+readKeys = concatMap parse <<< split (Pattern ", ")
+  where
+    parse "" = []
+    parse str = [ maybe (Right str) Left $ Int.fromString str ]
+
 
 ----------
 -- Code

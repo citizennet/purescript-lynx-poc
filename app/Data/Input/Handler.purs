@@ -126,7 +126,7 @@ handleInput st ref = fromMaybe (HH.div_ [])
             , inputId: refStr
             , error: either head (const Nothing) result
             }
-            [ HH.slot unit TA.component
+            [ HH.slot refStr TA.component
               ( TAInput.defSingle
                 [ HP.placeholder "Type to search..."
                 , HP.id_ refStr
@@ -177,7 +177,7 @@ handleInput st ref = fromMaybe (HH.div_ [])
               , inputId: refStr
               , error: either head (const Nothing) result
               }
-              [ HH.slot unit TA.component
+              [ HH.slot refStr TA.component
                 ( TAInput.defAsyncMulti
                   [ HP.placeholder "Type to search..."
                   , HP.id_ refStr

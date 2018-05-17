@@ -2,6 +2,7 @@ module Lynx.Components.Form where
 
 import Prelude
 
+import Debug.Trace (spy)
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Console (CONSOLE)
@@ -47,6 +48,8 @@ type ComponentConfig v i r eff m =
     :: r
     -> InputRef
     -> ComponentDSL v i r eff m Unit
+  , initialize
+    :: ComponentDSL v i r eff m Unit
   }
 
 type Input v i r = Either (FormConfig v i r) FormId
@@ -88,7 +91,7 @@ type ComponentHTML v i r eff m
 type ComponentDSL v i r eff m
   = H.ParentDSL (State v i r) (Query v i r) (ChildQuery v i r eff m) ChildSlot Message m
 
-type ChildSlot = Unit
+type ChildSlot = String
 type ChildQuery v i r eff m
   = TA.Query (Query v i r) String String eff m
 
@@ -99,7 +102,7 @@ component :: ∀ v i r eff m
   => MonadAff (Effects eff) m
   => ComponentConfig v i r (Effects eff) m
   -> Component v i r m
-component { handleInput, handleValidate, handleRelate } =
+component { handleInput, handleValidate, handleRelate, initialize } =
   H.lifecycleParentComponent
     { initialState
     , render
@@ -131,17 +134,31 @@ component { handleInput, handleValidate, handleRelate } =
       :: Query v i r
       ~> ComponentDSL v i r (Effects eff) m
     eval = case _ of
-      Initialize a -> do
+      Initialize a -> a <$ do
         state <- H.get
         if state.fromDB
-          then eval (GetForm state.selectedForm a)
-          else pure a
+          then do
+             _ <- eval (GetForm state.selectedForm a)
+             st0 <- H.get
+             _ <- pure $ spy st0
+             initialize
+             st1 <- H.get
+             _ <- pure $ spy st1
+             pure a
+          else do
+             st0 <- H.get
+             _ <- pure $ spy st0
+             initialize
+             st1 <- H.get
+             _ <- pure $ spy st1
+             pure a
 
       Receiver (Left config) a -> do
         H.modify _
           { config = config
           , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
           }
+        initialize
         pure a
       Receiver (Right _) a -> pure a
 

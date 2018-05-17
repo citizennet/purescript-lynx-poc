@@ -8,23 +8,16 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Data.Argonaut (jsonSingletonObject)
 import Data.Argonaut.Core (Json, fromArray, fromNumber, fromObject, fromString, jsonNull)
-import Data.Either (Either(..))
+import Data.Either (Either(Left, Right))
 import Data.StrMap as StrMap
 import Data.Tuple (Tuple(..))
+import Lynx.Data.ForeignAPI (ArrayKeys(..), ItemKeys(..), Search, fetch, findItems, readArrayKeys, readItemKeys, renderArrayKeys, renderItemKeys, unpackItems)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..))
 import Test.Unit (suite, test)
 import Test.Unit.Assert (equal, expectFailure)
 import Test.Unit.Console (TESTOUTPUT)
 import Test.Unit.Main (runTest)
-import Lynx.Data.ForeignAPI
-  ( ArrayKeys(..)
-  , ItemKeys(..)
-  , Search
-  , fetch
-  , findItems
-  , unpackItems
-  )
 
 
 type IO =
@@ -80,3 +73,27 @@ main = runTest do
        expectFailure
          "Fails if keys to unpack items are wrong"
           $ equal (Right [ "Anakin Skywalker" ]) result
+
+     test "Renders to string properly" do
+       let result = renderItemKeys sampleIKey
+       equal "name" result
+
+     test "Renders to string properly" do
+       let result = renderArrayKeys (ArrayKeys [ Left 1, Right "key", Left 2 ])
+       equal "1, key, 2" result
+
+     test "Renders to string properly" do
+       let result = renderArrayKeys (ArrayKeys [ ])
+       equal "" result
+
+     test "Reads from string properly" do
+       let result = readItemKeys "name"
+       equal sampleIKey result
+
+     test "Reads from string properly" do
+       let result = readArrayKeys "1, key, 2"
+       equal (ArrayKeys [ Left 1, Right "key", Left 2 ]) result
+
+     test "Reads from string properly" do
+       let result = readArrayKeys ""
+       equal (ArrayKeys [ ]) result
