@@ -6,12 +6,23 @@
           0,
           {
             "relations": [],
-            "validations": [
-              {
-                "validationType": "Required"
-              }
-            ],
+            "validations": [],
             "inputType": {
+              "foreignData": {
+                "itemKeys": [
+                  {
+                    "tag": "Right",
+                    "value": "name"
+                  }
+                ],
+                "arrayKeys": [
+                  {
+                    "tag": "Right",
+                    "value": "results"
+                  }
+                ],
+                "url": "https://swapi.co/api/planets/?search="
+              },
               "inputContents": {
                 "validate": false,
                 "result": {
@@ -19,30 +30,20 @@
                   "value": []
                 },
                 "input": {
-                  "optionItems": [
-                    "Yes",
-                    "No",
-                    "Maybe"
-                  ],
-                  "optionType": "Dropdown"
+                  "optionData": [],
+                  "optionType": "Checkbox"
                 }
               },
               "inputAttrs": {
-                "helpText": "Say yes or no bro",
-                "label": "Bluefin Tuna"
+                "helpText": "",
+                "label": "Choose Favorite Planet"
               },
-              "formInput": "Options"
+              "formInput": "OptionsForeign"
             }
           }
-        ]
-      ],
-      "supply": 1,
-      "id": 1
-    },
-    {
-      "inputs": [
+        ],
         [
-          0,
+          1,
           {
             "relations": [],
             "validations": [
@@ -51,6 +52,21 @@
               }
             ],
             "inputType": {
+              "foreignData": {
+                "itemKeys": [
+                  {
+                    "tag": "Right",
+                    "value": "name"
+                  }
+                ],
+                "arrayKeys": [
+                  {
+                    "tag": "Right",
+                    "value": "results"
+                  }
+                ],
+                "url": "https://swapi.co/api/people/?search="
+              },
               "inputContents": {
                 "validate": false,
                 "result": {
@@ -58,25 +74,105 @@
                   "value": []
                 },
                 "input": {
-                  "optionItems": [
-                    "Yes",
-                    "No",
-                    "Maybe",
-                    "oeuoeu"
-                  ],
+                  "optionData": [],
                   "optionType": "Dropdown"
                 }
               },
               "inputAttrs": {
-                "helpText": "Say yes or no bro",
-                "label": "Bluefin Tuna"
+                "helpText": "",
+                "label": "Choose Favorite Person"
               },
-              "formInput": "Options"
+              "formInput": "OptionsForeign"
             }
           }
         ]
       ],
-      "supply": 1,
+      "supply": 2,
+      "id": 1
+    },
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [],
+            "inputType": {
+              "foreignData": {
+                "itemKeys": [
+                  {
+                    "tag": "Right",
+                    "value": "company"
+                  },
+                  {
+                    "tag": "Right",
+                    "value": "bs"
+                  }
+                ],
+                "arrayKeys": [],
+                "url": "https://jsonplaceholder.typicode.com/users"
+              },
+              "inputContents": {
+                "validate": false,
+                "result": {
+                  "tag": "Left",
+                  "value": []
+                },
+                "input": {
+                  "optionData": [],
+                  "optionType": "Radio"
+                }
+              },
+              "inputAttrs": {
+                "helpText": "Select one only.",
+                "label": "Choose a catchphrase"
+              },
+              "formInput": "OptionsForeign"
+            }
+          }
+        ],
+        [
+          1,
+          {
+            "relations": [],
+            "validations": [],
+            "inputType": {
+              "foreignData": {
+                "itemKeys": [
+                  {
+                    "tag": "Right",
+                    "value": "name"
+                  }
+                ],
+                "arrayKeys": [
+                  {
+                    "tag": "Right",
+                    "value": "results"
+                  }
+                ],
+                "url": "https://swapi.co/api/people/?search="
+              },
+              "inputContents": {
+                "validate": false,
+                "result": {
+                  "tag": "Left",
+                  "value": []
+                },
+                "input": {
+                  "optionData": [],
+                  "optionType": "Dropdown"
+                }
+              },
+              "inputAttrs": {
+                "helpText": "",
+                "label": "Choose a person"
+              },
+              "formInput": "OptionsForeign"
+            }
+          }
+        ]
+      ],
+      "supply": 2,
       "id": 2
     }
   ]

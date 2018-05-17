@@ -104,6 +104,7 @@ component =
                 { handleValidate: VH.handleValidate
                 , handleInput: IH.handleInput
                 , handleRelate: RH.handleRelate
+                , initialize: Builder.initialize
                 }
               )
               (Right formId)

@@ -8,6 +8,8 @@ import App.Data.Relate.Handler (handleRelate) as R
 import App.Data.Relate.Type (Relate) as R
 import App.Data.Validate.Handler (handleValidate) as V
 import App.Data.Validate.Type (Validate(..)) as V
+import Control.Monad.Aff.Class (class MonadAff)
+import Control.Monad.State.Class (class MonadState)
 import Control.Monad.Aff (Aff)
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Console (CONSOLE, error)
@@ -31,6 +33,9 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Form
+import Lynx.Data.ForeignAPI (ArrayKeys(..), ItemKeys(..), renderArrayKeys, renderItemKeys, readArrayKeys, readItemKeys, fetch)
+import Network.RemoteData (RemoteData(..), withDefault)
+import Control.Monad.Aff.Console as Console
 import Lynx.Data.Graph (FormConfig(..), FormId, InputConfig(..), InputRef(..))
 import Network.HTTP.Affjax (AJAX, get, post)
 import Ocelot.Block.Button as Button
@@ -45,8 +50,10 @@ data Query a
   | Initialize a
   | UpdateAttrs InputRef AttrField a
   | UpdateOptValue InputRef Int String a
+  | UpdateForeign InputRef ForeignField a
   | ChangeOptions InputRef (ArrayAction (Tuple Int String)) a
   | ChangeValidations InputRef (ArrayAction V.Validate) a
+  | RunForeign a
   | Submit a
 
 -- Perform an update on array-based data by adding, removing,
@@ -56,10 +63,15 @@ data ArrayAction a
   | Remove a
 
 data AttrField
-  = Label String
-  | HelpText (Maybe String)
+  = LabelField String
+  | HelpTextField (Maybe String)
 
-type State = { config :: FormConfig' }
+data ForeignField
+ = UrlField String
+ | ArrayKeyField String
+ | ItemKeyField String
+
+type State = { config :: FormConfig', runForeign :: Boolean }
 type InputConfig' = InputConfig V.Validate I.AppInput R.Relate
 type FormConfig' = FormConfig V.Validate I.AppInput R.Relate
 
@@ -91,17 +103,20 @@ component =
     }
   where
     initialState :: Input -> State
-    initialState i = { config: FormConfig { supply: 0, id: i, inputs: Map.empty } }
+    initialState i =
+      { config: FormConfig { supply: 0, id: i, inputs: Map.empty }
+      , runForeign: false }
 
     eval
       :: Query
       ~> H.ParentDSL State Query ChildQuery ChildSlot Message (Aff (Effects eff))
     eval = case _ of
-      -- Load the existing form config, if it exists; otherwise, keep the blank config.
+      -- Load the existing form config, if it exists;
+      -- otherwise, keep the blank config.
       Initialize a -> do
         formId <- H.gets (_.id <<< unwrap <<< _.config)
         res <- H.liftAff $ getFormConfig formId
-        traverse_ (\config -> H.put { config }) res
+        traverse_ (\config -> H.put { config, runForeign: false }) res
         pure a
 
       Create input a -> do
@@ -109,13 +124,27 @@ component =
          pure a
 
       UpdateAttrs ref change a -> case change of
-        Label str -> do
+        LabelField str -> do
           H.modify \st ->
             st { config = updateInput st.config ref (setInputLabel str) }
           pure a
-        HelpText x -> do
+        HelpTextField x -> do
           H.modify \st ->
             st { config = updateInput st.config ref (setInputHelpText x) }
+          pure a
+
+      UpdateForeign ref change a -> case change of
+        UrlField str -> do
+          H.modify \st ->
+            st { config = updateInput st.config ref (setForeignUrl str) }
+          pure a
+        ArrayKeyField str -> do
+          H.modify \st ->
+            st { config = updateInput st.config ref (setForeignArrayKeys str) }
+          pure a
+        ItemKeyField str -> do
+          H.modify \st ->
+            st { config = updateInput st.config ref (setForeignItemKeys str) }
           pure a
 
       UpdateOptValue ref index str a -> do
@@ -142,6 +171,11 @@ component =
           H.modify \st ->
             st { config = updateInput st.config ref (removeValidation v) }
           pure a
+
+      RunForeign a -> do
+        H.modify _ { runForeign = true }
+        H.modify _ { runForeign = false }
+        pure a
 
       Submit a -> do
         -- Submit the form to the backend DB
@@ -221,12 +255,53 @@ component =
                              , validate: false }
                 )
             }
+          , mkInput
+            { color: "bg-orange"
+            , icon: "fa fa-align-justify"
+            , label: "Custom API Options (Radio)"
+            , type_: I.OptionsForeign
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Radio [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+                (I.ForeignData "" (ArrayKeys []) (ItemKeys []))
+            }
+          , mkInput
+            { color: "bg-orange"
+            , icon: "fa fa-align-justify"
+            , label: "Custom API Options (Checkbox)"
+            , type_: I.OptionsForeign
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Checkbox [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+                (I.ForeignData "" (ArrayKeys []) (ItemKeys []))
+            }
+          , mkInput
+            { color: "bg-orange"
+            , icon: "fa fa-align-justify"
+            , label: "Custom API Options (Dropdown)"
+            , type_: I.OptionsForeign
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Dropdown [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+                (I.ForeignData "" (ArrayKeys []) (ItemKeys []))
+            }
           ]
         , HH.div
           [ css "w-1/2 h-screen bg-grey-lightest" ]
           [ Button.buttonDark
-            [ HE.onClick $ HE.input_ Submit ]
+            [ HE.onClick $ HE.input_ Submit
+            , css "m-2" ]
             [ HH.text "Submit" ]
+          , Button.buttonDark
+            [ HE.onClick $ HE.input_ RunForeign
+            , css "m-2" ]
+            [ HH.text "Fetch Data" ]
           , Card.card_ (renderInputs state.config)
           ]
         , HH.div
@@ -237,8 +312,9 @@ component =
                 { handleInput: handleInput
                 , handleValidate: V.handleValidate
                 , handleRelate: R.handleRelate
+                , initialize
                 })
-              (Left state.config)
+              (Left (Tuple state.config state.runForeign))
               (const Nothing)
           ]
         ]
@@ -257,6 +333,11 @@ component =
                 -> renderNumber k l x
               I.Options (I.Attrs l) (I.FormInput { input })
                 -> renderOptions k l x input
+              I.OptionsForeign
+                (I.Attrs l)
+                (I.FormInput { input } )
+                foreignData
+                -> renderOptionsForeign k l x foreignData
 
             renderText k l c@{ inputType, validations, relations } =
               HH.div
@@ -273,7 +354,7 @@ component =
                   }
                   [ Input.input
                     [ HP.value l.label
-                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< Label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< LabelField
                     ]
                   ]
                 , FormField.field_
@@ -284,7 +365,7 @@ component =
                   }
                   [ Input.input
                     [ HP.value $ fromMaybe "" l.helpText
-                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpText <<< Just
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpTextField <<< Just
                     ]
                   ]
                 , FormField.field_
@@ -315,7 +396,7 @@ component =
                   }
                   [ Input.input
                     [ HP.value l.label
-                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< Label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< LabelField
                     ]
                   ]
                 , FormField.field_
@@ -326,7 +407,7 @@ component =
                   }
                   [ Input.input
                     [ HP.value $ fromMaybe "" l.helpText
-                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpText <<< Just
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpTextField <<< Just
                     ]
                   ]
                 , FormField.field_
@@ -357,7 +438,7 @@ component =
                   }
                   [ Input.input
                     [ HP.value l.label
-                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< Label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< LabelField
                     ]
                   ]
                 , FormField.field_
@@ -368,7 +449,7 @@ component =
                   }
                   [ Input.input
                     [ HP.value $ fromMaybe "" l.helpText
-                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpText <<< Just
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpTextField <<< Just
                     ]
                   ]
                 , FormField.field_
@@ -401,7 +482,7 @@ component =
                   }
                   [ Input.input
                     [ HP.value l.label
-                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< Label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< LabelField
                     ]
                   ]
                 , FormField.field_
@@ -412,7 +493,7 @@ component =
                   }
                   [ Input.input
                     [ HP.value $ fromMaybe "" l.helpText
-                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpText <<< Just
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpTextField <<< Just
                     ]
                   ]
                 , FormField.fieldset_
@@ -474,6 +555,88 @@ component =
                   ]
                 ]
 
+            renderOptionsForeign
+              k
+              l
+              c@{ inputType, validations, relations }
+              (I.ForeignData url akeys ikeys)
+              =
+              HH.div
+                [ css "m-8" ]
+                [ HH.div_
+                  [ renderIcon
+                    { color: "bg-orange", icon: "fa fa-align-justify" }
+                  , HH.span_
+                    [ HH.text "Custom API Options" ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Label"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< LabelField
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Helptext"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value $ fromMaybe "" l.helpText
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpTextField <<< Just
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Just "Provide the source URL for your data."
+                  , label: "Source URL"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value url
+                    , HE.onValueInput $ HE.input $ UpdateForeign k <<< UrlField
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Just "Tell us how to access the array of items in your data that will display as options. Comma-separate either integers (to represent array indices) or strings (to represent object keys) to describe the path to the items. Leave this empty if the array of items is the response."
+                  , label: "Path to Array in JSON Response"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value $ renderArrayKeys akeys
+                    , HE.onValueInput $ HE.input $ UpdateForeign k <<< ArrayKeyField
+                    ]
+                  ]
+                , FormField.field_
+                { helpText: Just "Tell us how to turn each item into a string in your array of items. For example, if each item is an object and you want to display the \"name\" key, provide that as the key. If the items are already strings, leave this empty."
+                  , label: "Path to String in Item in JSON Response"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value $ renderItemKeys ikeys
+                    , HE.onValueInput $ HE.input $ UpdateForeign k <<< ItemKeyField
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Required"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Toggle.toggle
+                    [ HP.checked (elem V.Required validations)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
+                    ]
+                  ]
+                ]
+
         mkInput { color, icon, label, type_ } =
           HH.div
             [ css "w-full"
@@ -517,6 +680,13 @@ updateInput :: FormConfig' -> InputRef -> (InputConfig' -> InputConfig') -> Form
 updateInput (FormConfig config) ref f =
   wrap $ config { inputs = Map.update (map Just f) ref config.inputs }
 
+updateForm
+  :: Map InputRef I.AppInput
+  -> InputRef
+  -> (I.AppInput -> I.AppInput)
+  -> Map InputRef I.AppInput
+updateForm m ref f = Map.update (map Just f) ref m
+
 setInputLabel :: String -> InputConfig' -> InputConfig'
 setInputLabel str (InputConfig i) = InputConfig $ case i.inputType of
   I.Text (I.Attrs x) formInput ->
@@ -527,6 +697,8 @@ setInputLabel str (InputConfig i) = InputConfig $ case i.inputType of
     i { inputType = I.Number (I.Attrs $ x { label = str }) formInput }
   I.Options (I.Attrs x) formInput ->
     i { inputType = I.Options (I.Attrs $ x { label = str }) formInput }
+  I.OptionsForeign (I.Attrs x) formInput fd ->
+    i { inputType = I.OptionsForeign (I.Attrs $ x { label = str }) formInput fd }
 
 setInputHelpText :: Maybe String -> InputConfig' -> InputConfig'
 setInputHelpText str (InputConfig i) = InputConfig $ case i.inputType of
@@ -538,6 +710,8 @@ setInputHelpText str (InputConfig i) = InputConfig $ case i.inputType of
     i { inputType = I.Number (I.Attrs $ x { helpText = str }) formInput }
   I.Options (I.Attrs x) formInput ->
     i { inputType = I.Options (I.Attrs $ x { helpText = str }) formInput }
+  I.OptionsForeign (I.Attrs x) formInput fd ->
+    i { inputType = I.OptionsForeign (I.Attrs $ x { helpText = str }) formInput fd }
 
 setOptionText :: Int -> String -> InputConfig' -> InputConfig'
 setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
@@ -552,6 +726,26 @@ setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
   otherwise -> i
 
+setForeignUrl :: String -> InputConfig' -> InputConfig'
+setForeignUrl str (InputConfig i) = InputConfig $ case i.inputType of
+  I.OptionsForeign attrs fi (I.ForeignData _ akeys ikeys) ->
+    i { inputType = I.OptionsForeign attrs fi $ I.ForeignData str akeys ikeys }
+  otherwise -> i
+
+setForeignArrayKeys :: String -> InputConfig' -> InputConfig'
+setForeignArrayKeys str (InputConfig i) = InputConfig $ case i.inputType of
+  I.OptionsForeign attrs fi (I.ForeignData url _ ikeys) ->
+    i { inputType = I.OptionsForeign attrs fi
+      $ I.ForeignData url (readArrayKeys str) ikeys }
+  otherwise -> i
+
+setForeignItemKeys :: String -> InputConfig' -> InputConfig'
+setForeignItemKeys str (InputConfig i) = InputConfig $ case i.inputType of
+  I.OptionsForeign attrs fi (I.ForeignData url akeys _) ->
+    i { inputType = I.OptionsForeign attrs fi
+      $ I.ForeignData url akeys (readItemKeys str) }
+  otherwise -> i
+
 insertOption :: String -> InputConfig' -> InputConfig'
 insertOption str (InputConfig i) = InputConfig $ case i.inputType of
   I.Options attrs (I.FormInput f@{ input }) ->
@@ -563,6 +757,15 @@ insertOption str (InputConfig i) = InputConfig $ case i.inputType of
           I.Dropdown arr ->
             I.Dropdown $ arr <> [ str ]
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
+  I.OptionsForeign attrs (I.FormInput f@{ input }) fdata ->
+    let new = case input of
+          I.Radio arr ->
+            I.Radio $ arr <> [ str ]
+          I.Checkbox arr ->
+            I.Checkbox $ arr <> [ str ]
+          I.Dropdown arr ->
+            I.Dropdown $ arr <> [ str ]
+     in i { inputType = I.OptionsForeign attrs (I.FormInput (f { input = new })) fdata }
   otherwise -> i
 
 removeOption :: Int -> InputConfig' -> InputConfig'
@@ -576,6 +779,15 @@ removeOption index (InputConfig i) = InputConfig $ case i.inputType of
           I.Dropdown arr ->
             I.Dropdown $ fromMaybe arr $ deleteAt index arr
      in i { inputType = I.Options attrs $ I.FormInput (f { input = new }) }
+  I.OptionsForeign attrs (I.FormInput f@{ input }) fdata ->
+    let new = case input of
+          I.Radio arr ->
+            I.Radio (fromMaybe arr $ deleteAt index arr)
+          I.Checkbox arr ->
+            I.Checkbox (fromMaybe arr $ deleteAt index arr)
+          I.Dropdown arr ->
+            I.Dropdown (fromMaybe arr $ deleteAt index arr)
+     in i { inputType = I.OptionsForeign attrs (I.FormInput (f { input = new })) fdata }
   otherwise -> i
 
 insertValidation :: V.Validate -> InputConfig' -> InputConfig'
@@ -602,3 +814,45 @@ saveFormConfig config =
   decodeJson <<< _.response <$> post uri (encodeJson config)
   where
     uri = "http://localhost:3000/forms"
+
+-- A helper function that can be used to initialize the form
+-- builder.
+initialize :: ∀ eff m
+   . MonadState (Form.State V.Validate I.AppInput R.Relate) m
+  => MonadAff (Form.Effects eff) m
+  => m Unit
+initialize = do
+  (refs :: Array (Tuple InputRef I.AppInput))
+    <- H.gets (Map.toAscUnfoldable <<< _.form)
+  flip traverse_ refs $ \(Tuple ref input) -> do
+    case input of
+      I.OptionsForeign attrs formInput (I.ForeignData url akeys ikeys) -> do
+        arr <- do
+          data_ <- H.liftAff $ fetch akeys ikeys url ""
+          case data_ of
+            Success xs -> pure xs
+            Failure err -> do
+               H.liftAff $ Console.log err
+               pure []
+            otherwise -> pure $ withDefault [] data_
+
+        -- Do something with array of strings...
+        flip traverse_ arr $ \str ->
+          H.modify \st ->
+            st { form = updateForm st.form ref (insertForeignOption str) }
+
+      otherwise -> pure unit
+
+
+insertForeignOption  :: String -> I.AppInput -> I.AppInput
+insertForeignOption str i = case i of
+  I.OptionsForeign attrs (I.FormInput f@{ input }) fdata ->
+    let new = case input of
+          I.Radio arr ->
+            I.Radio $ arr <> [ str ]
+          I.Checkbox arr ->
+            I.Checkbox $ arr <> [ str ]
+          I.Dropdown arr ->
+            I.Dropdown $ arr <> [ str ]
+     in I.OptionsForeign attrs (I.FormInput (f { input = new })) fdata
+  otherwise -> i

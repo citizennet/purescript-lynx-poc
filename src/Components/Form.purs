@@ -17,6 +17,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap)
 import Data.Traversable (traverse_)
+import Data.Tuple (Tuple(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -47,9 +48,11 @@ type ComponentConfig v i r eff m =
     :: r
     -> InputRef
     -> ComponentDSL v i r eff m Unit
+  , initialize
+    :: ComponentDSL v i r eff m Unit
   }
 
-type Input v i r = Either (FormConfig v i r) FormId
+type Input v i r = Either (Tuple (FormConfig v i r) Boolean) FormId
 
 data Message
 
@@ -58,6 +61,7 @@ type State v i r =
   , form         :: Map InputRef i
   , selectedForm :: FormId
   , fromDB       :: Boolean
+  , runForeign   :: Boolean
   }
 
 type Effects eff =
@@ -88,7 +92,7 @@ type ComponentHTML v i r eff m
 type ComponentDSL v i r eff m
   = H.ParentDSL (State v i r) (Query v i r) (ChildQuery v i r eff m) ChildSlot Message m
 
-type ChildSlot = Unit
+type ChildSlot = String
 type ChildQuery v i r eff m
   = TA.Query (Query v i r) String String eff m
 
@@ -99,7 +103,7 @@ component :: ∀ v i r eff m
   => MonadAff (Effects eff) m
   => ComponentConfig v i r (Effects eff) m
   -> Component v i r m
-component { handleInput, handleValidate, handleRelate } =
+component { handleInput, handleValidate, handleRelate, initialize } =
   H.lifecycleParentComponent
     { initialState
     , render
@@ -110,11 +114,12 @@ component { handleInput, handleValidate, handleRelate } =
     }
   where
     initialState = case _ of
-      Left config ->
+      Left (Tuple config runForeign) ->
         { form: (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
         , config
         , selectedForm: FormId (-1)
         , fromDB: false
+        , runForeign
         }
       Right formId ->
         { config: FormConfig
@@ -125,24 +130,31 @@ component { handleInput, handleValidate, handleRelate } =
         , form: Map.empty
         , selectedForm: formId
         , fromDB: true
+        , runForeign: false
         }
 
     eval
       :: Query v i r
       ~> ComponentDSL v i r (Effects eff) m
     eval = case _ of
-      Initialize a -> do
+      Initialize a -> a <$ do
         state <- H.get
         if state.fromDB
-          then eval (GetForm state.selectedForm a)
-          else pure a
+          then do
+            eval (GetForm state.selectedForm a)
+            *> initialize
+          else if state.runForeign
+            then initialize
+            else pure unit
 
-      Receiver (Left config) a -> do
+      Receiver (Left (Tuple config runForeign)) a -> do
         H.modify _
           { config = config
-          , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
+          , form = (_.inputType <<< unwrap)
+               <$> (_.inputs <<< unwrap $ config)
+          , runForeign = runForeign
           }
-        pure a
+        eval (Initialize a)
       Receiver (Right _) a -> pure a
 
       GetForm i a -> a <$ do

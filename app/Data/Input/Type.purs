@@ -2,7 +2,7 @@ module App.Data.Input.Type where
 
 import Prelude
 
-import Data.Argonaut (jsonEmptyObject)
+import Data.Argonaut (jsonEmptyObject, jsonNull)
 import Data.Argonaut.Decode (decodeJson, (.?), (.??), (.?=))
 import Data.Argonaut.Decode.Class (class DecodeJson)
 import Data.Argonaut.Encode ((:=), (~>))
@@ -13,6 +13,7 @@ import Data.Generic.Rep.Eq (genericEq)
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
+import Lynx.Data.ForeignAPI (ArrayKeys(..), ItemKeys(..), URL)
 
 -- For convenience.
 type AppInput = Input Attrs OptionItems
@@ -26,10 +27,18 @@ type AppInput = Input Attrs OptionItems
 -- We'll probably have to name them in some big constructor like this except for
 -- option types.
 data Input attrs items
-  = Text       attrs (FormInput String String)
-  | TextArea   attrs (FormInput String String)
-  | Number     attrs (FormInput String Number)
-  | Options    attrs (FormInput (InputOptions items) (InputOptions items))
+  = Text
+      attrs (FormInput String String)
+  | TextArea
+      attrs (FormInput String String)
+  | Number
+      attrs (FormInput String Number)
+  | Options
+      attrs (FormInput (InputOptions items) (InputOptions items))
+  | OptionsForeign
+      attrs
+      (FormInput (InputOptions String) (InputOptions String))
+      ForeignData
 
 -- Right now compares raw inputs. Not clear this should be the point of comparison.
 -- Could also compare result fields.
@@ -57,21 +66,31 @@ instance encodeJsonInput
      "formInput" := "Text"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
+      ~> "foreignData" := jsonNull
       ~> jsonEmptyObject
     TextArea attrs input ->
       "formInput" := "TextArea"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
+      ~> "foreignData" := jsonNull
       ~> jsonEmptyObject
     Number attrs input ->
       "formInput" := "Number"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
+      ~> "foreignData" := jsonNull
       ~> jsonEmptyObject
     Options attrs input ->
       "formInput" := "Options"
       ~> "inputAttrs" := attrs
       ~> "inputContents" := input
+      ~> "foreignData" := jsonNull
+      ~> jsonEmptyObject
+    OptionsForeign attrs input data_ ->
+      "formInput" := "OptionsForeign"
+      ~> "inputAttrs" := attrs
+      ~> "inputContents" := input
+      ~> "foreignData" := data_
       ~> jsonEmptyObject
 
 instance decodeJsonInput
@@ -95,7 +114,12 @@ instance decodeJsonInput
       "Options" -> do
          contents <- obj .? "inputContents"
          pure $ Options attrs contents
+      "OptionsForeign" -> do
+         contents <- obj .? "inputContents"
+         data_ <- obj .? "foreignData"
+         pure $ OptionsForeign attrs contents data_
       _ -> Left $ "No decoder written for case " <> type'
+
 
 -- Inputs need to have raw values stored in the form so
 -- the data can be pulled off and submitted.
@@ -126,6 +150,26 @@ instance decodeJsonFormInput
     validate <- obj .? "validate"
     pure $ FormInput { input, result, validate }
 
+
+-- Some types can fetch foreign data
+data ForeignData = ForeignData URL ArrayKeys ItemKeys
+
+instance encodeJsonForeignData :: EncodeJson ForeignData where
+  encodeJson (ForeignData url (ArrayKeys akeys) (ItemKeys ikeys)) =
+   "url" := url
+     ~> "arrayKeys" := akeys
+     ~> "itemKeys" := ikeys
+     ~> jsonEmptyObject
+
+instance decodeJsonForeignData :: DecodeJson ForeignData where
+  decodeJson json = do
+   obj <- decodeJson json
+   url <- obj .? "url"
+   arrayKeys <- obj .? "arrayKeys"
+   itemKeys <- obj .? "itemKeys"
+   pure $ ForeignData url (ArrayKeys arrayKeys) (ItemKeys itemKeys)
+
+
 -- These can represent collections of options, where we once again need some top
 -- level unified constructor for all possible 'items' we'll support.
 data InputOptions items
@@ -144,15 +188,15 @@ instance encodeJsonInputOptions
     case i of
       Radio arr ->
         "optionType" := "Radio"
-        ~> "optionItems" := arr
+        ~> "optionData" := arr
         ~> jsonEmptyObject
       Checkbox arr ->
         "optionType" := "Checkbox"
-        ~> "optionItems" := arr
+        ~> "optionData" := arr
         ~> jsonEmptyObject
       Dropdown arr ->
         "optionType" := "Dropdown"
-        ~> "optionItems" := arr
+        ~> "optionData" := arr
         ~> jsonEmptyObject
 
 instance decodeJsonInputOptions
@@ -162,13 +206,13 @@ instance decodeJsonInputOptions
     type' <- obj .? "optionType"
     case type' of
       "Radio" -> do
-         items <- traverse decodeJson =<< obj .? "optionItems"
+         items <- traverse decodeJson =<< obj .? "optionData"
          pure $ Radio items
       "Checkbox" -> do
-         items <- traverse decodeJson =<< obj .? "optionItems"
+         items <- traverse decodeJson =<< obj .? "optionData"
          pure $ Checkbox items
       "Dropdown" -> do
-         items <- traverse decodeJson =<< obj .? "optionItems"
+         items <- traverse decodeJson =<< obj .? "optionData"
          pure $ Dropdown items
       _ -> Left $ "No decoder written for case " <> type'
 
