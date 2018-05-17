@@ -134,10 +134,12 @@ data InputOptions items
   | Dropdown (Array String)
 
 derive instance genericInputOptions :: Generic (InputOptions items) _
+
 instance eqInputOptions :: Eq items => Eq (InputOptions items) where
   eq = genericEq
 
-instance encodeJsonInputOptions :: EncodeJson items => EncodeJson (InputOptions items) where
+instance encodeJsonInputOptions
+  :: EncodeJson items => EncodeJson (InputOptions items) where
   encodeJson i =
     case i of
       Radio arr ->
@@ -153,7 +155,8 @@ instance encodeJsonInputOptions :: EncodeJson items => EncodeJson (InputOptions 
         ~> "optionItems" := arr
         ~> jsonEmptyObject
 
-instance decodeJsonInputOptions :: DecodeJson items => DecodeJson (InputOptions items) where
+instance decodeJsonInputOptions
+  :: DecodeJson items => DecodeJson (InputOptions items) where
   decodeJson json = do
     obj <- decodeJson json
     type' <- obj .? "optionType"
@@ -187,7 +190,8 @@ instance encodeJsonOptionItems :: EncodeJson OptionItems where
         TextItem s -> Tuple "TextItem" s
         CustomItem (MyItem s) -> Tuple "MyItem" s
 
-instance decodeJsonOptionItems :: DecodeJson OptionItems where
+instance decodeJsonOptionItems
+  :: DecodeJson OptionItems where
   decodeJson json = do
     obj <- decodeJson json
     type' <- obj .? "itemType"
@@ -217,7 +221,8 @@ instance encodeJsonAttrs :: EncodeJson Attrs where
     ~> "helpText" := i.helpText
     ~> jsonEmptyObject
 
-instance decodeJsonAttrs :: DecodeJson Attrs where
+instance decodeJsonAttrs
+  :: DecodeJson Attrs where
   decodeJson json = do
     obj <- decodeJson json
     label <- obj .? "label"

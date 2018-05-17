@@ -143,7 +143,6 @@ component { handleInput, handleValidate, handleRelate } =
           , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
           }
         pure a
-
       Receiver (Right _) a -> pure a
 
       GetForm i a -> a <$ do
