@@ -11,13 +11,21 @@ import Data.Argonaut.Core (Json, fromArray, fromNumber, fromObject, fromString, 
 import Data.Either (Either(..))
 import Data.StrMap as StrMap
 import Data.Tuple (Tuple(..))
-import Lynx.Data.ForeignAPI (Search, fetch, findItems, unpackItems)
 import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..))
 import Test.Unit (suite, test)
 import Test.Unit.Assert (equal, expectFailure)
 import Test.Unit.Console (TESTOUTPUT)
 import Test.Unit.Main (runTest)
+import Lynx.Data.ForeignAPI
+  ( ArrayKeys(..)
+  , ItemKeys(..)
+  , Search
+  , fetch
+  , findItems
+  , unpackItems
+  )
+
 
 type IO =
   ( console :: CONSOLE
@@ -26,17 +34,18 @@ type IO =
   , ajax :: AJAX
   )
 
+
 main :: Eff IO Unit
 main = runTest do
    suite "JSON Parsing" do
      let sampleUrl = "https://swapi.co/api/people/?search="
          sampleSearch = "Luke"
 
-         sampleAKey :: Array (Either Int String)
-         sampleAKey = [ Right "results" ]
+         sampleAKey :: ArrayKeys
+         sampleAKey = ArrayKeys [ Right "results" ]
 
-         sampleIKey :: Array (Either Int String)
-         sampleIKey = [ Right "name" ]
+         sampleIKey :: ItemKeys
+         sampleIKey = ItemKeys [ Right "name" ]
 
          -- Looks like the URL we need to provide to the typeahead!
          sampleFetch :: Search -> Aff IO (RemoteData String (Array String))
@@ -61,13 +70,13 @@ main = runTest do
        equal (Success [ "Anakin Skywalker" ]) result
 
      test "Fails if array keys are wrong" do
-       let result = unpackItems sampleIKey =<< findItems [] sampleJson
+       let result = unpackItems sampleIKey =<< findItems (ArrayKeys []) sampleJson
        expectFailure
          "Fails if keys to find item array are wrong"
           $ equal (Right [ "Anakin Skywalker" ]) result
 
      test "Fails if item keys are wrong" do
-       let result = unpackItems [] =<< findItems sampleAKey sampleJson
+       let result = unpackItems (ItemKeys []) =<< findItems sampleAKey sampleJson
        expectFailure
          "Fails if keys to unpack items are wrong"
           $ equal (Right [ "Anakin Skywalker" ]) result

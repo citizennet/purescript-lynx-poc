@@ -31,6 +31,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Form
+import Lynx.Data.ForeignAPI (ArrayKeys(..), ItemKeys(..))
 import Lynx.Data.Graph (FormConfig(..), FormId, InputConfig(..), InputRef(..))
 import Network.HTTP.Affjax (AJAX, get, post)
 import Ocelot.Block.Button as Button
@@ -221,6 +222,42 @@ component =
                              , validate: false }
                 )
             }
+          , mkInput
+            { color: "bg-orange"
+            , icon: "fa fa-align-justify"
+            , label: "Custom API Options (Radio)"
+            , type_: I.OptionsForeign
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Radio [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+                (I.ForeignData "" (ArrayKeys []) (ItemKeys []))
+            }
+          , mkInput
+            { color: "bg-orange"
+            , icon: "fa fa-align-justify"
+            , label: "Custom API Options (Checkbox)"
+            , type_: I.OptionsForeign
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Checkbox [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+                (I.ForeignData "" (ArrayKeys []) (ItemKeys []))
+            }
+          , mkInput
+            { color: "bg-orange"
+            , icon: "fa fa-align-justify"
+            , label: "Custom API Options (Dropdown)"
+            , type_: I.OptionsForeign
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.Dropdown [ ]
+                             , result: Left []
+                             , validate: false }
+                )
+                (I.ForeignData "" (ArrayKeys []) (ItemKeys []))
+            }
           ]
         , HH.div
           [ css "w-1/2 h-screen bg-grey-lightest" ]
@@ -257,6 +294,11 @@ component =
                 -> renderNumber k l x
               I.Options (I.Attrs l) (I.FormInput { input })
                 -> renderOptions k l x input
+              I.OptionsForeign
+                (I.Attrs l)
+                (I.FormInput { input } )
+                foreignData
+                -> renderOptionsForeign k l x foreignData
 
             renderText k l c@{ inputType, validations, relations } =
               HH.div
@@ -474,6 +516,93 @@ component =
                   ]
                 ]
 
+            -- WARN / TODO
+            -- Need to actually:
+            --  1. Render array / item keys out as comma-separated text
+            --  2. Provide a way to parse a comma-separated string to AKey/IKey
+            --  3. In form initialization, make sure to fetch data for the radio
+            --     buttons and checkboxes. The dropdowns will fetch themselves.
+            --  4. Write update functions so that when the user adds keys they
+            --     get parsed and update the ForeignData. Same for the URL input
+            renderOptionsForeign
+              k
+              l
+              c@{ inputType, validations, relations }
+              (I.ForeignData url akeys ikeys)
+              =
+              HH.div
+                [ css "m-8" ]
+                [ HH.div_
+                  [ renderIcon
+                    { color: "bg-orange", icon: "fa fa-align-justify" }
+                  , HH.span_
+                    [ HH.text "Custom API Options" ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Label"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< Label
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Helptext"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value $ fromMaybe "" l.helpText
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpText <<< Just
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Just "Provide the source URL for your data."
+                  , label: "Source URL"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value url
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Just "Tell us how to access the array of items in your data that will display as options. Comma-separate either integers (to represent array indices) or strings (to represent object keys) to describe the path to the items. Leave this empty if the array of items is the response."
+                  , label: "Path to Array in JSON Response"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value url
+                    ]
+                  ]
+                , FormField.field_
+                { helpText: Just "Tell us how to turn each item into a string in your array of items. For example, if each item is an object and you want to display the \"name\" key, provide that as the key. If the items are already strings, leave this empty."
+                  , label: "Path to Array in JSON Response"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value url
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Required"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Toggle.toggle
+                    [ HP.checked (elem V.Required validations)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
+                    ]
+                  ]
+                ]
+
         mkInput { color, icon, label, type_ } =
           HH.div
             [ css "w-full"
@@ -527,6 +656,8 @@ setInputLabel str (InputConfig i) = InputConfig $ case i.inputType of
     i { inputType = I.Number (I.Attrs $ x { label = str }) formInput }
   I.Options (I.Attrs x) formInput ->
     i { inputType = I.Options (I.Attrs $ x { label = str }) formInput }
+  I.OptionsForeign (I.Attrs x) formInput fd ->
+    i { inputType = I.OptionsForeign (I.Attrs $ x { label = str }) formInput fd }
 
 setInputHelpText :: Maybe String -> InputConfig' -> InputConfig'
 setInputHelpText str (InputConfig i) = InputConfig $ case i.inputType of
@@ -538,6 +669,8 @@ setInputHelpText str (InputConfig i) = InputConfig $ case i.inputType of
     i { inputType = I.Number (I.Attrs $ x { helpText = str }) formInput }
   I.Options (I.Attrs x) formInput ->
     i { inputType = I.Options (I.Attrs $ x { helpText = str }) formInput }
+  I.OptionsForeign (I.Attrs x) formInput fd ->
+    i { inputType = I.OptionsForeign (I.Attrs $ x { helpText = str }) formInput fd }
 
 setOptionText :: Int -> String -> InputConfig' -> InputConfig'
 setOptionText index str (InputConfig i) = InputConfig $ case i.inputType of
