@@ -524,6 +524,8 @@ component =
             --     buttons and checkboxes. The dropdowns will fetch themselves.
             --  4. Write update functions so that when the user adds keys they
             --     get parsed and update the ForeignData. Same for the URL input
+            --  5. Update the Form component to also make requests for custom
+            --     data in the page.
             renderOptionsForeign
               k
               l
