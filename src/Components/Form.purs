@@ -2,7 +2,6 @@ module Lynx.Components.Form where
 
 import Prelude
 
-import Debug.Trace (spy)
 import Control.Monad.Aff.AVar (AVAR)
 import Control.Monad.Aff.Class (class MonadAff)
 import Control.Monad.Aff.Console (CONSOLE)
@@ -137,21 +136,8 @@ component { handleInput, handleValidate, handleRelate, initialize } =
       Initialize a -> a <$ do
         state <- H.get
         if state.fromDB
-          then do
-             _ <- eval (GetForm state.selectedForm a)
-             st0 <- H.get
-             _ <- pure $ spy st0
-             initialize
-             st1 <- H.get
-             _ <- pure $ spy st1
-             pure a
-          else do
-             st0 <- H.get
-             _ <- pure $ spy st0
-             initialize
-             st1 <- H.get
-             _ <- pure $ spy st1
-             pure a
+          then eval (GetForm state.selectedForm a) *> initialize
+          else initialize
 
       Receiver (Left config) a -> do
         H.modify _
