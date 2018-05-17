@@ -71,7 +71,3 @@ main = runTest do
        expectFailure
          "Fails if keys to unpack items are wrong"
           $ equal (Right [ "Anakin Skywalker" ]) result
-
-----------
--- JSON Parsing Tests
-
