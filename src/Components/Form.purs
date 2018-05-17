@@ -17,6 +17,7 @@ import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap)
 import Data.Traversable (traverse_)
+import Data.Tuple (Tuple(..))
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -51,7 +52,7 @@ type ComponentConfig v i r eff m =
     :: ComponentDSL v i r eff m Unit
   }
 
-type Input v i r = Either (FormConfig v i r) FormId
+type Input v i r = Either (Tuple (FormConfig v i r) Boolean) FormId
 
 data Message
 
@@ -60,6 +61,7 @@ type State v i r =
   , form         :: Map InputRef i
   , selectedForm :: FormId
   , fromDB       :: Boolean
+  , runForeign   :: Boolean
   }
 
 type Effects eff =
@@ -112,11 +114,12 @@ component { handleInput, handleValidate, handleRelate, initialize } =
     }
   where
     initialState = case _ of
-      Left config ->
+      Left (Tuple config runForeign) ->
         { form: (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
         , config
         , selectedForm: FormId (-1)
         , fromDB: false
+        , runForeign
         }
       Right formId ->
         { config: FormConfig
@@ -127,6 +130,7 @@ component { handleInput, handleValidate, handleRelate, initialize } =
         , form: Map.empty
         , selectedForm: formId
         , fromDB: true
+        , runForeign: false
         }
 
     eval
@@ -136,16 +140,21 @@ component { handleInput, handleValidate, handleRelate, initialize } =
       Initialize a -> a <$ do
         state <- H.get
         if state.fromDB
-          then eval (GetForm state.selectedForm a) *> initialize
-          else initialize
+          then do
+            eval (GetForm state.selectedForm a)
+            *> initialize
+          else if state.runForeign
+            then initialize
+            else pure unit
 
-      Receiver (Left config) a -> do
+      Receiver (Left (Tuple config runForeign)) a -> do
         H.modify _
           { config = config
-          , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
+          , form = (_.inputType <<< unwrap)
+               <$> (_.inputs <<< unwrap $ config)
+          , runForeign = runForeign
           }
-        initialize
-        pure a
+        eval (Initialize a)
       Receiver (Right _) a -> pure a
 
       GetForm i a -> a <$ do

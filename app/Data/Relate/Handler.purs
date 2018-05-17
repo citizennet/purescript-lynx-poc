@@ -29,7 +29,8 @@ handleRelate relation refA = case relation of
     case equal of
       Just true -> pure unit
       otherwise -> do
-        liftAff $ Console.log $ show refA <> " is NOT equal to " <> show refB
+        liftAff
+          $ Console.log $ show refA <> " is NOT equal to " <> show refB
         pure unit
 
   Clears refB -> do

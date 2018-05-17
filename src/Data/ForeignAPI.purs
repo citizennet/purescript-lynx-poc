@@ -124,3 +124,5 @@ fetch akeys ikeys url search = do
   res <- _.response <$> get (url <> search)
   -- Attempt to retrieve the string array
   pure <<< fromEither $ unpackItems ikeys =<< findItems akeys res
+
+-- If we don't want searches

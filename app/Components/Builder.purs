@@ -53,6 +53,7 @@ data Query a
   | UpdateForeign InputRef ForeignField a
   | ChangeOptions InputRef (ArrayAction (Tuple Int String)) a
   | ChangeValidations InputRef (ArrayAction V.Validate) a
+  | RunForeign a
   | Submit a
 
 -- Perform an update on array-based data by adding, removing,
@@ -70,7 +71,7 @@ data ForeignField
  | ArrayKeyField String
  | ItemKeyField String
 
-type State = { config :: FormConfig' }
+type State = { config :: FormConfig', runForeign :: Boolean }
 type InputConfig' = InputConfig V.Validate I.AppInput R.Relate
 type FormConfig' = FormConfig V.Validate I.AppInput R.Relate
 
@@ -102,17 +103,20 @@ component =
     }
   where
     initialState :: Input -> State
-    initialState i = { config: FormConfig { supply: 0, id: i, inputs: Map.empty } }
+    initialState i =
+      { config: FormConfig { supply: 0, id: i, inputs: Map.empty }
+      , runForeign: false }
 
     eval
       :: Query
       ~> H.ParentDSL State Query ChildQuery ChildSlot Message (Aff (Effects eff))
     eval = case _ of
-      -- Load the existing form config, if it exists; otherwise, keep the blank config.
+      -- Load the existing form config, if it exists;
+      -- otherwise, keep the blank config.
       Initialize a -> do
         formId <- H.gets (_.id <<< unwrap <<< _.config)
         res <- H.liftAff $ getFormConfig formId
-        traverse_ (\config -> H.put { config }) res
+        traverse_ (\config -> H.put { config, runForeign: false }) res
         pure a
 
       Create input a -> do
@@ -167,6 +171,11 @@ component =
           H.modify \st ->
             st { config = updateInput st.config ref (removeValidation v) }
           pure a
+
+      RunForeign a -> do
+        H.modify _ { runForeign = true }
+        H.modify _ { runForeign = false }
+        pure a
 
       Submit a -> do
         -- Submit the form to the backend DB
@@ -286,8 +295,13 @@ component =
         , HH.div
           [ css "w-1/2 h-screen bg-grey-lightest" ]
           [ Button.buttonDark
-            [ HE.onClick $ HE.input_ Submit ]
+            [ HE.onClick $ HE.input_ Submit
+            , css "m-2" ]
             [ HH.text "Submit" ]
+          , Button.buttonDark
+            [ HE.onClick $ HE.input_ RunForeign
+            , css "m-2" ]
+            [ HH.text "Fetch Data" ]
           , Card.card_ (renderInputs state.config)
           ]
         , HH.div
@@ -300,7 +314,7 @@ component =
                 , handleRelate: R.handleRelate
                 , initialize
                 })
-              (Left state.config)
+              (Left (Tuple state.config state.runForeign))
               (const Nothing)
           ]
         ]
@@ -541,16 +555,6 @@ component =
                   ]
                 ]
 
-            -- WARN / TODO
-            -- Need to actually:
-            --
-            --
-            --
-            --
-            --
-            --
-            --  5. Update the Form component to also make requests for custom
-            --     data in the page.
             renderOptionsForeign
               k
               l
@@ -818,7 +822,8 @@ initialize :: ∀ eff m
   => MonadAff (Form.Effects eff) m
   => m Unit
 initialize = do
-  (refs :: Array (Tuple InputRef I.AppInput)) <- H.gets (Map.toAscUnfoldable <<< _.form)
+  (refs :: Array (Tuple InputRef I.AppInput))
+    <- H.gets (Map.toAscUnfoldable <<< _.form)
   flip traverse_ refs $ \(Tuple ref input) -> do
     case input of
       I.OptionsForeign attrs formInput (I.ForeignData url akeys ikeys) -> do
