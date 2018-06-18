@@ -8,11 +8,11 @@ import App.Data.Relate.Handler (handleRelate) as R
 import App.Data.Relate.Type (Relate) as R
 import App.Data.Validate.Handler (handleValidate) as V
 import App.Data.Validate.Type (Validate(..)) as V
-import Control.Monad.Aff.Class (class MonadAff)
+import Effect.Aff.Class (class MonadAff)
 import Control.Monad.State.Class (class MonadState)
-import Control.Monad.Aff (Aff)
-import Control.Monad.Aff.AVar (AVAR)
-import Control.Monad.Aff.Console (CONSOLE, error)
+import Effect.Aff (Aff)
+import Effect.Aff.AVar (AVAR)
+import Effect.Console (CONSOLE, error)
 import DOM (DOM)
 import DOM.HTML (window)
 import DOM.HTML.Location (setHash)
@@ -35,7 +35,7 @@ import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Form
 import Lynx.Data.ForeignAPI (ArrayKeys(..), ItemKeys(..), renderArrayKeys, renderItemKeys, readArrayKeys, readItemKeys, fetch)
 import Network.RemoteData (RemoteData(..), withDefault)
-import Control.Monad.Aff.Console as Console
+import Effect.Console as Console
 import Lynx.Data.Graph (FormConfig(..), FormId, InputConfig(..), InputRef(..))
 import Network.HTTP.Affjax (AJAX, get, post)
 import Ocelot.Block.Button as Button
@@ -120,61 +120,61 @@ component =
         pure a
 
       Create input a -> do
-         H.modify \st -> st { config = makeInput st.config input }
+         H.modify_ \st -> st { config = makeInput st.config input }
          pure a
 
       UpdateAttrs ref change a -> case change of
         LabelField str -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (setInputLabel str) }
           pure a
         HelpTextField x -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (setInputHelpText x) }
           pure a
 
       UpdateForeign ref change a -> case change of
         UrlField str -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (setForeignUrl str) }
           pure a
         ArrayKeyField str -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (setForeignArrayKeys str) }
           pure a
         ItemKeyField str -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (setForeignItemKeys str) }
           pure a
 
       UpdateOptValue ref index str a -> do
-        H.modify \st ->
+        H.modify_ \st ->
           st { config = updateInput st.config ref (setOptionText index str) }
         pure a
 
       ChangeOptions ref action a -> case action of
         Add (Tuple _ val) -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (insertOption val) }
           pure a
         Remove (Tuple index _) -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (removeOption index) }
           pure a
 
       ChangeValidations ref action a -> case action of
         Add v -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (insertValidation v) }
           pure a
         Remove v -> do
-          H.modify \st ->
+          H.modify_ \st ->
             st { config = updateInput st.config ref (removeValidation v) }
           pure a
 
       RunForeign a -> do
-        H.modify _ { runForeign = true }
-        H.modify _ { runForeign = false }
+        H.modify_ _ { runForeign = true }
+        H.modify_ _ { runForeign = false }
         pure a
 
       Submit a -> do
@@ -838,7 +838,7 @@ initialize = do
 
         -- Do something with array of strings...
         flip traverse_ arr $ \str ->
-          H.modify \st ->
+          H.modify_ \st ->
             st { form = updateForm st.form ref (insertForeignOption str) }
 
       otherwise -> pure unit

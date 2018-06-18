@@ -3,7 +3,7 @@ module App.Data.Input.Handler where
 import Prelude
 
 import App.Data.Input.Type (AppInput, Attrs(..), ForeignData(..), FormInput(..), Input(..), InputOptions(..), MyItem(..), OptionItems(..))
-import Control.Monad.Aff.Class (class MonadAff)
+import Effect.Aff.Class (class MonadAff)
 import Data.Array (head)
 import Data.Bifunctor (lmap)
 import Data.Either (either)

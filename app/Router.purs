@@ -10,9 +10,9 @@ import App.Data.Relate.Handler as RH
 import App.Data.Relate.Type as R
 import App.Data.Validate.Handler as VH
 import App.Data.Validate.Type as V
-import Control.Monad.Aff (Aff)
-import Control.Monad.Aff.AVar (AVAR)
-import Control.Monad.Aff.Console (CONSOLE)
+import Effect.Aff (Aff)
+import Effect.Aff.AVar (AVAR)
+import Effect.Console (CONSOLE)
 import DOM (DOM)
 import Data.Either (Either(..))
 import Data.Either.Nested (Either3)

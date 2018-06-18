@@ -3,9 +3,9 @@ module Main where
 import Prelude
 
 import App.Router as R
-import Control.Monad.Aff (launchAff)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
+import Effect.Aff (launchAff)
+import Effect (Eff)
+import Effect.Class (liftEff)
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
 import Routing.Hash (matches)

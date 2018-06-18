@@ -3,8 +3,8 @@ module App.Components.Home where
 import Prelude
 
 import App.Components.Builder (FormConfig')
-import Control.Monad.Aff (Aff)
-import Control.Monad.Aff.Console (CONSOLE)
+import Effect.Aff (Aff)
+import Effect.Console (CONSOLE)
 import DOM (DOM)
 import DOM.HTML (window)
 import DOM.HTML.Location (setHash)
@@ -79,7 +79,7 @@ component =
         forms <- H.liftAff getForms
         case forms of
           Left _ -> pure a
-          Right f -> H.modify _ { forms = f } *> pure a
+          Right f -> H.modify_ _ { forms = f } *> pure a
 
       Navigate loc a -> do
         let run str formId = H.liftEff $ setHash ("#/" <> str <> "/" <> (show <<< unwrap) formId) =<< location =<< window

@@ -2,8 +2,7 @@ module Lynx.Data.ForeignAPI where
 
 import Prelude
 
-import Control.Monad.Aff (Aff)
-import Data.Argonaut (JArray, JObject, Json, foldJson, toArray, toString)
+import Data.Argonaut (Json, caseJson, toArray, toString)
 import Data.Array (concatMap, uncons, (!!))
 import Data.Either (Either(..), either, note)
 import Data.Generic.Rep (class Generic)
@@ -12,10 +11,13 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Int (fromString) as Int
 import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (class Newtype, unwrap)
-import Data.StrMap as StrMap
 import Data.String (Pattern(..), joinWith, split)
 import Data.Traversable (traverse)
-import Network.HTTP.Affjax (AJAX, get)
+import Effect.Aff (Aff)
+import Foreign.Object (Object)
+import Foreign.Object as Object
+import Network.HTTP.Affjax (get)
+import Network.HTTP.Affjax.Response (json) as Response
 import Network.RemoteData (RemoteData, fromEither)
 
 -- We need to provide this function to our typeahead:
@@ -35,7 +37,7 @@ instance showArrayKeys :: Show ArrayKeys where
   show = genericShow
 
 renderArrayKeys :: ArrayKeys -> String
-renderArrayKeys = joinWith ", " <<< map (either show id) <<< unwrap
+renderArrayKeys = joinWith ", " <<< map (either show identity) <<< unwrap
 
 readArrayKeys :: String -> ArrayKeys
 readArrayKeys = ArrayKeys <<< readKeys
@@ -49,7 +51,7 @@ instance showItemKeys :: Show ItemKeys where
   show = genericShow
 
 renderItemKeys :: ItemKeys -> String
-renderItemKeys = joinWith ", " <<< map (either show id) <<< unwrap
+renderItemKeys = joinWith ", " <<< map (either show identity) <<< unwrap
 
 readItemKeys :: String -> ItemKeys
 readItemKeys = ItemKeys <<< readKeys
@@ -64,21 +66,21 @@ readKeys = concatMap parse <<< split (Pattern ", ")
 ----------
 -- Code
 
-pickKey :: String -> JObject -> Either String Json
-pickKey key = note ("Failed to find key in object: " <> key) <<< StrMap.lookup key
+pickKey :: String -> Object Json -> Either String Json
+pickKey key = note ("Failed to find key in object: " <> key) <<< Object.lookup key
 
-pickIndex :: Int -> JArray -> Either String Json
+pickIndex :: Int -> Array Json -> Either String Json
 pickIndex i arr = note ("Index " <> show i <> " is out of bounds!") $ arr !! i
 
 pickNext :: Either Int String -> Json -> Either String Json
-pickNext (Left i) = foldJson
+pickNext (Left i) = caseJson
   (const $ Left "Found null, expected array")
   (const $ Left "Found boolean, expected array")
   (const $ Left "Found number, expected array")
   (const $ Left "Found string, expected array")
   (\xs -> pickIndex i xs)
   (const $ Left "Found object, expected array")
-pickNext (Right key) = foldJson
+pickNext (Right key) = caseJson
   (const $ Left $ "Found null, expected object with key " <> key)
   (const $ Left $ "Found boolean, expected object with key " <> key)
   (const $ Left $ "Found number, expected object with key " <> key)
@@ -113,15 +115,15 @@ unpackItems (ItemKeys keys) json =
 -- We could force the end user to change their API to work, but that sucks.
 -- Instead, we ought to let them specify what keys will get the array of
 -- results, and what keys will turn the JSON to a string
-fetch :: ∀ e
-  . ArrayKeys
+fetch
+ :: ArrayKeys
  -> ItemKeys
  -> URL
  -> Search
- -> Aff (ajax :: AJAX | e) (RemoteData String (Array String))
+ -> Aff (RemoteData String (Array String))
 fetch akeys ikeys url search = do
   -- Fetch the data
-  res <- _.response <$> get (url <> search)
+  res <- _.response <$> get Response.json (url <> search)
   -- Attempt to retrieve the string array
   pure <<< fromEither $ unpackItems ikeys =<< findItems akeys res
 

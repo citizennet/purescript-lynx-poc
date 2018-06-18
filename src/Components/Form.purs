@@ -2,13 +2,8 @@ module Lynx.Components.Form where
 
 import Prelude
 
-import Control.Monad.Aff.AVar (AVAR)
-import Control.Monad.Aff.Class (class MonadAff)
-import Control.Monad.Aff.Console (CONSOLE)
-import Control.Monad.Aff.Console as Console
 import Control.Monad.State.Class (class MonadState)
-import DOM (DOM)
-import Data.Argonaut (class DecodeJson, Json, decodeJson)
+import Data.Argonaut (class DecodeJson, decodeJson)
 import Data.Array (fromFoldable) as Array
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
@@ -18,11 +13,14 @@ import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap)
 import Data.Traversable (traverse_)
 import Data.Tuple (Tuple(..))
+import Effect.Aff.Class (class MonadAff)
+import Effect.Console as Console
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Lynx.Data.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
-import Network.HTTP.Affjax (AJAX, get)
+import Network.HTTP.Affjax (get)
+import Network.HTTP.Affjax.Response (json) as Response
 import Ocelot.Components.Typeahead as TA
 
 -- `i` is the Input type
@@ -35,11 +33,11 @@ data Query v i r a
   | Initialize a
   | Receiver (Input v i r) a
 
-type ComponentConfig v i r eff m =
+type ComponentConfig v i r m =
   { handleInput
     :: State v i r
     -> InputRef
-    -> ComponentHTML v i r eff m
+    -> ComponentHTML v i r m
   , handleValidate
     :: v
     -> i
@@ -47,9 +45,9 @@ type ComponentConfig v i r eff m =
   , handleRelate
     :: r
     -> InputRef
-    -> ComponentDSL v i r eff m Unit
+    -> ComponentDSL v i r m Unit
   , initialize
-    :: ComponentDSL v i r eff m Unit
+    :: ComponentDSL v i r m Unit
   }
 
 type Input v i r = Either (Tuple (FormConfig v i r) Boolean) FormId
@@ -63,13 +61,6 @@ type State v i r =
   , fromDB       :: Boolean
   , runForeign   :: Boolean
   }
-
-type Effects eff =
-  ( console :: CONSOLE
-  , ajax :: AJAX
-  , dom :: DOM
-  , avar :: AVAR
-  | eff )
 
 inputAp :: ∀ i. (i -> i) -> InputRef -> Map InputRef i -> Map InputRef i
 inputAp f ref orig
@@ -86,22 +77,22 @@ inputAp f ref orig
 type Component v i r m
   = H.Component HH.HTML (Query v i r) (Input v i r) Message m
 
-type ComponentHTML v i r eff m
-  = H.ParentHTML (Query v i r) (ChildQuery v i r eff m) ChildSlot m
+type ComponentHTML v i r m
+  = H.ParentHTML (Query v i r) (ChildQuery v i r m) ChildSlot m
 
-type ComponentDSL v i r eff m
-  = H.ParentDSL (State v i r) (Query v i r) (ChildQuery v i r eff m) ChildSlot Message m
+type ComponentDSL v i r m
+  = H.ParentDSL (State v i r) (Query v i r) (ChildQuery v i r m) ChildSlot Message m
 
 type ChildSlot = String
-type ChildQuery v i r eff m
-  = TA.Query (Query v i r) String String eff m
+type ChildQuery v i r m
+  = TA.Query (Query v i r) String String m
 
-component :: ∀ v i r eff m
+component :: ∀ v i r m
    . DecodeJson v
   => DecodeJson i
   => DecodeJson r
-  => MonadAff (Effects eff) m
-  => ComponentConfig v i r (Effects eff) m
+  => MonadAff m
+  => ComponentConfig v i r m
   -> Component v i r m
 component { handleInput, handleValidate, handleRelate, initialize } =
   H.lifecycleParentComponent
@@ -135,7 +126,7 @@ component { handleInput, handleValidate, handleRelate, initialize } =
 
     eval
       :: Query v i r
-      ~> ComponentDSL v i r (Effects eff) m
+      ~> ComponentDSL v i r m
     eval = case _ of
       Initialize a -> a <$ do
         state <- H.get
@@ -148,7 +139,7 @@ component { handleInput, handleValidate, handleRelate, initialize } =
             else pure unit
 
       Receiver (Left (Tuple config runForeign)) a -> do
-        H.modify _
+        H.modify_ _
           { config = config
           , form = (_.inputType <<< unwrap)
                <$> (_.inputs <<< unwrap $ config)
@@ -158,12 +149,12 @@ component { handleInput, handleValidate, handleRelate, initialize } =
       Receiver (Right _) a -> pure a
 
       GetForm i a -> a <$ do
-        (res :: Json) <- H.liftAff $
-           _.response <$> get ("http://localhost:3000/forms/" <> (show $ unwrap i))
+        res <- H.liftAff $
+          _.response <$> get Response.json ("http://localhost:3000/forms/" <> (show $ unwrap i))
         case decodeJson res of
-          Left s -> H.liftAff $ Console.log s *> pure a
+          Left s -> H.liftEffect $ Console.log s *> pure a
           Right config -> do
-            H.modify _
+            H.modify_ _
               { config = config
               , form = (_.inputType <<< unwrap) <$> (_.inputs <<< unwrap $ config)
               }
@@ -182,7 +173,7 @@ component { handleInput, handleValidate, handleRelate, initialize } =
         TA.VisibilityChanged v -> pure a
 
       UpdateValue ref func a -> a <$ do
-        H.modify \st -> st { form = inputAp func ref st.form }
+        H.modify_ \st -> st { form = inputAp func ref st.form }
 
       Blur ref f a -> do
         runRelations ref handleRelate
@@ -195,26 +186,25 @@ component { handleInput, handleValidate, handleRelate, initialize } =
 
     render
       :: State v i r
-      -> ComponentHTML v i r (Effects eff) m
+      -> ComponentHTML v i r m
     render st = HH.div_
       [ HH.div_
-        $ Array.fromFoldable
-        $ handleInput st <$> Map.keys st.form
+        $ handleInput st <$> (Array.fromFoldable $ Map.keys st.form)
       , HH.button
           [ HE.onClick (HE.input_ Submit) ]
           [ HH.text "Submit" ]
       ]
 
 -- Attempt to use the provided validation helper to run on the form validations
-runValidations :: ∀ eff v i r m
-  . MonadAff (Effects eff) m
+runValidations :: ∀ v i r m
+  . MonadAff m
  => InputRef
  -> (i -> i) -- reset
  -> (v -> i -> i)
  -> H.ParentDSL
       (State v i r)
       (Query v i r)
-      (ChildQuery v i r (Effects eff) m)
+      (ChildQuery v i r m)
       ChildSlot
       Message
       m
@@ -223,15 +213,15 @@ runValidations ref reset validate = do
   st <- H.get
   case Map.lookup ref (_.inputs $ unwrap st.config) of
     Nothing -> do
-       H.liftAff $ Console.log $ "Could not find ref " <> show ref <> " in config."
+       H.liftEffect $ Console.log $ "Could not find ref " <> show ref <> " in config."
        pure unit
     Just (InputConfig config) -> case Map.lookup ref st.form of
       Nothing -> do
-        H.liftAff $ Console.log $ "Could not find ref " <> show ref <> " in form."
+        H.liftEffect $ Console.log $ "Could not find ref " <> show ref <> " in form."
         pure unit
       Just input -> do
         let type' = foldr (\v i -> validate v i) (reset input) config.validations
-        H.modify _ { form = inputAp (const type') ref st.form }
+        H.modify_ _ { form = inputAp (const type') ref st.form }
         pure unit
 
 -- Attempt to use the provided relations helper to run on form relations

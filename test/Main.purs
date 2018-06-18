@@ -2,33 +2,20 @@ module Test.Main where
 
 import Prelude
 
-import Control.Monad.Aff (Aff)
-import Control.Monad.Aff.AVar (AVAR)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
+import Effect (Effect)
+import Effect.Aff (Aff)
 import Data.Argonaut (jsonSingletonObject)
 import Data.Argonaut.Core (Json, fromArray, fromNumber, fromObject, fromString, jsonNull)
-import Data.Either (Either(Left, Right))
-import Data.StrMap as StrMap
+import Data.Either (Either(..))
+import Foreign.Object as Object
 import Data.Tuple (Tuple(..))
 import Lynx.Data.ForeignAPI (ArrayKeys(..), ItemKeys(..), Search, fetch, findItems, readArrayKeys, readItemKeys, renderArrayKeys, renderItemKeys, unpackItems)
-import Network.HTTP.Affjax (AJAX)
 import Network.RemoteData (RemoteData(..))
 import Test.Unit (suite, test)
 import Test.Unit.Assert (equal, expectFailure)
-import Test.Unit.Console (TESTOUTPUT)
 import Test.Unit.Main (runTest)
 
-
-type IO =
-  ( console :: CONSOLE
-  , testOutput :: TESTOUTPUT
-  , avar :: AVAR
-  , ajax :: AJAX
-  )
-
-
-main :: Eff IO Unit
+main :: Effect Unit
 main = runTest do
    suite "JSON Parsing" do
      let sampleUrl = "https://swapi.co/api/people/?search="
@@ -41,12 +28,12 @@ main = runTest do
          sampleIKey = ItemKeys [ Right "name" ]
 
          -- Looks like the URL we need to provide to the typeahead!
-         sampleFetch :: Search -> Aff IO (RemoteData String (Array String))
+         sampleFetch :: Search -> Aff (RemoteData String (Array String))
          sampleFetch = fetch sampleAKey sampleIKey sampleUrl
 
          -- Example response from the SW API
          sampleJson :: Json
-         sampleJson = fromObject $ StrMap.fromFoldable
+         sampleJson = fromObject $ Object.fromFoldable
            [ Tuple "count" (fromNumber 1.0)
            , Tuple "next" jsonNull
            , Tuple "previous" jsonNull

@@ -15,17 +15,17 @@
     "serve": "json-server --watch db.json"
   },
   "devDependencies": {
-    "@fortawesome/fontawesome-free-webfonts": "^1.0.6",
-    "npm-run-all": "^4.1.2",
-    "parcel-bundler": "^1.7.0",
-    "pulp": "^12.0.1",
-    "purescript": "^0.11.6",
+    "@fortawesome/fontawesome-free-webfonts": "^1.0.9",
+    "npm-run-all": "^4.1.3",
+    "parcel-bundler": "^1.9.1",
+    "pulp": "^12.3.0",
+    "purescript": "^0.12.0",
     "xhr2": "^0.1.4"
   },
   "dependencies": {
     "add": "^2.0.6",
-    "big-integer": "^1.6.28",
-    "json-server": "^0.12.1",
-    "yarn": "^1.6.0"
+    "big-integer": "^1.6.31",
+    "json-server": "^0.14.0",
+    "yarn": "^1.7.0"
   }
 }
