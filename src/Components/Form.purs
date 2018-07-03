@@ -163,7 +163,7 @@ component { handleInput, handleValidate, handleRelate, initialize } =
       HandleTypeahead ref m a -> case m of
         TA.Emit q -> eval q *> pure a
         TA.Searched _ -> pure a
-        TA.SelectionsChanged _ _ items -> do
+        TA.SelectionsChanged _ items -> do
           -- Update the input with the new array
           let arr = case items of
                TA.Many xs -> xs
