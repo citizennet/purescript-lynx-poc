@@ -2,6 +2,10 @@ module App.Components.Builder where
 
 import Prelude
 
+import Data.DateTime (DateTime(..))
+import Data.Variant (inj)
+import Data.Symbol (SProxy(..))
+import Ocelot.Data.DateTime (defaultDate, defaultTime)
 import App.Data.Input.Handler (handleInput, optionItemToStr)
 import App.Data.Input.Type as I
 import App.Data.Relate.Handler (handleRelate) as R
@@ -39,7 +43,6 @@ import Ocelot.Block.Button as Button
 import Ocelot.Block.Card as Card
 import Ocelot.Block.FormField as FormField
 import Ocelot.Block.Input as Input
-import Ocelot.Block.Radio (radio_) as Radio
 import Ocelot.Block.Toggle as Toggle
 import Ocelot.HTML.Properties (css)
 import Web.HTML (window)
@@ -212,6 +215,39 @@ component =
             , icon: "fa fa-align-justify"
             , label: "Number"
             , type_: I.Number (I.Attrs { label: "", helpText: Just "" }) numberInput
+            }
+          , mkInput
+            { color: "bg-black"
+            , icon: "fa fa-align-justify"
+            , label: "Date"
+            , type_: I.DateTimeInput
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.DateAndOrTime $ inj (SProxy :: SProxy "date") defaultDate
+                             , result: Left []
+                             , validate: false }
+                )
+            }
+          , mkInput
+            { color: "bg-black"
+            , icon: "fa fa-align-justify"
+            , label: "Time"
+            , type_: I.DateTimeInput
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.DateAndOrTime $ inj (SProxy :: SProxy "time") defaultTime
+                             , result: Left []
+                             , validate: false }
+                )
+            }
+          , mkInput
+            { color: "bg-black"
+            , icon: "fa fa-align-justify"
+            , label: "Date & Time"
+            , type_: I.DateTimeInput
+                (I.Attrs { label: "", helpText: Just "" })
+                (I.FormInput { input: I.DateAndOrTime $ inj (SProxy :: SProxy "dateTime") (DateTime defaultDate defaultTime)
+                             , result: Left []
+                             , validate: false }
+                )
             }
           , mkInput
             { color: "bg-yellow"
@@ -485,26 +521,6 @@ component =
                   [ Input.input
                     [ HP.value $ fromMaybe "" l.helpText
                     , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpTextField <<< Just
-                    ]
-                  ]
-                , FormField.fieldset_
-                  { label: "Component Type"
-                  , inputId: "radio-vertical"
-                  , helpText: Just "Choose a date, time, or date time component."
-                  , error: Nothing
-                  }
-                  [ HH.div_
-                    [ Radio.radio_
-                      [ HP.name "datetime"
-                      , HP.checked true
-                      ]
-                      [ HH.text "Date" ]
-                    , Radio.radio_
-                      [ HP.name "datetime" ]
-                      [ HH.text "Time" ]
-                    , Radio.radio_
-                      [ HP.name "datetime" ]
-                      [ HH.text "Date & Time" ]
                     ]
                   ]
                 , FormField.field_

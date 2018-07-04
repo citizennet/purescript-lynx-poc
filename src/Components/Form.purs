@@ -6,6 +6,7 @@ import Control.Monad.State.Class (class MonadState)
 import Data.Argonaut (class DecodeJson, decodeJson)
 import Data.Array (fromFoldable) as Array
 import Data.Either (Either(..))
+import Data.Either.Nested (Either3)
 import Data.Foldable (foldr)
 import Data.Functor.Coproduct (Coproduct)
 import Data.Functor.Coproduct.Nested (Coproduct3)
@@ -91,7 +92,11 @@ type ComponentHTML v i r m
 type ComponentDSL v i r m
   = H.ParentDSL (State v i r) (Query v i r) (ChildQuery v i r m) ChildSlot Message m
 
-type ChildSlot = String
+type ChildSlot = Either3
+  String
+  String
+  String
+
 type ChildQuery v i r m = Coproduct3
   ( TA.Query (Query v i r) String String m )
   DatePicker.Query

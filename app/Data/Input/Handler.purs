@@ -15,7 +15,6 @@ import Data.Tuple (Tuple(..))
 import Data.Variant (match)
 import Effect.Aff.Class (class MonadAff)
 import Halogen (liftAff) as H
-import Halogen.Component.ChildPath (cp1, cp2, cp3) as CP
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
@@ -103,38 +102,39 @@ handleInput st ref = fromMaybe (HH.div_ [])
         , error: either head (const Nothing) result
         , inputId: refStr
         }
-        ( flip match (unwrap input)
-          { date: \d -> []
-              --  [ HH.slot'
-              --      datePickerCP
-              --      refStr
-              --      DatePicker.component
-              --      { targetDate: Just $ Tuple (year d) (month d), selection: Nothing }
-              --      ( HE.input $ Form.HandleDatePicker ref )
-              --  ]
-          , time: \t -> []
-              --  [ HH.slot'
-              --      timePickerCP
-              --      refStr
-              --      TimePicker.component
-              --      { selection: Nothing }
-              --      ( HE.input $ Form.HandleTimePicker ref )
-              --  ]
-          , dateTime: \dt -> []
-              --  [ HH.slot'
-              --      datePickerCP
-              --      refStr
-              --      DatePicker.component
-              --      { targetDate: Just $ Tuple (year $ date dt) (month $ date dt), selection: Nothing }
-              --      ( HE.input $ Form.HandleDatePicker ref )
-              --  , HH.slot'
-              --      timePickerCP
-              --      refStr
-              --      TimePicker.component
-              --      { selection: Nothing }
-              --      ( HE.input $ Form.HandleTimePicker ref )
-              --  ]
+        ( match
+          { date: \d ->
+              [ HH.slot'
+                  datePickerCP
+                  refStr
+                  DatePicker.component
+                  { targetDate: Nothing, selection: Nothing }
+                  ( HE.input $ Form.HandleDatePicker ref )
+              ]
+          , time: \t ->
+              [ HH.slot'
+                  timePickerCP
+                  refStr
+                  TimePicker.component
+                  { selection: Nothing }
+                  ( HE.input $ Form.HandleTimePicker ref )
+              ]
+          , dateTime: \dt ->
+              [ HH.slot'
+                  datePickerCP
+                  refStr
+                  DatePicker.component
+                  { targetDate: Just $ Tuple (year $ date dt) (month $ date dt), selection: Nothing }
+                  ( HE.input $ Form.HandleDatePicker ref )
+              , HH.slot'
+                  timePickerCP
+                  refStr
+                  TimePicker.component
+                  { selection: Nothing }
+                  ( HE.input $ Form.HandleTimePicker ref )
+              ]
           }
+          ( unwrap input )
         )
 
       Options
@@ -175,20 +175,19 @@ handleInput st ref = fromMaybe (HH.div_ [])
             , inputId: refStr
             , error: either head (const Nothing) result
             }
-            []
-            --  [ HH.slot'
-            --      typeaheadCP
-            --      refStr
-            --      TA.component
-            --      ( TAInput.defSingle
-            --        [ HP.placeholder "Type to search..."
-            --        , HP.id_ refStr
-            --        ]
-            --        arr
-            --        TAInput.renderItemString
-            --      )
-            --      ( HE.input $ Form.HandleTypeahead ref )
-            --  ]
+            [ HH.slot'
+                typeaheadCP
+                refStr
+                TA.component
+                ( TAInput.defSingle
+                  [ HP.placeholder "Type to search..."
+                  , HP.id_ refStr
+                  ]
+                  arr
+                  TAInput.renderItemString
+                )
+                ( HE.input $ Form.HandleTypeahead ref )
+            ]
 
       -- Data is set remotely. For radios and checkboxes, fetch at render time.
       -- For dropdowns, accept a function to search.
@@ -230,20 +229,19 @@ handleInput st ref = fromMaybe (HH.div_ [])
               , inputId: refStr
               , error: either head (const Nothing) result
               }
-              []
-              --  [ HH.slot'
-              --      typeaheadCP
-              --      refStr
-              --      TA.component
-              --      ( TAInput.defAsyncMulti
-              --        [ HP.placeholder "Type to search..."
-              --        , HP.id_ refStr
-              --        ]
-              --        (H.liftAff <<< fetch akeys ikeys url)
-              --        TAInput.renderItemString
-              --      )
-              --      ( HE.input $ Form.HandleTypeahead ref )
-              --  ]
+              [ HH.slot'
+                  typeaheadCP
+                  refStr
+                  TA.component
+                  ( TAInput.defAsyncMulti
+                    [ HP.placeholder "Type to search..."
+                    , HP.id_ refStr
+                    ]
+                    (H.liftAff <<< fetch akeys ikeys url)
+                    TAInput.renderItemString
+                  )
+                  ( HE.input $ Form.HandleTypeahead ref )
+              ]
 
 setTextValue :: String -> AppInput -> AppInput
 setTextValue str inputType = case inputType of
