@@ -7,13 +7,19 @@ import Data.Argonaut.Decode (decodeJson, (.?), (.??), (.?=))
 import Data.Argonaut.Decode.Class (class DecodeJson)
 import Data.Argonaut.Encode ((:=), (~>))
 import Data.Argonaut.Encode.Class (class EncodeJson)
+import Data.DateTime (Date, DateTime(..), Time, date, time)
 import Data.Either (Either(..))
+import Data.Formatter.DateTime as FDT
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Eq (genericEq)
 import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype)
+import Data.Symbol (SProxy(..))
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
+import Data.Variant (Variant, inj, match)
 import Lynx.Data.ForeignAPI (ArrayKeys(..), ItemKeys(..), URL)
+import Ocelot.Data.DateTime (defaultDate, defaultTime)
 
 -- For convenience.
 type AppInput = Input Attrs OptionItems
@@ -33,6 +39,8 @@ data Input attrs items
       attrs (FormInput String String)
   | Number
       attrs (FormInput String Number)
+  | DateTimeInput
+      attrs (FormInput DateAndOrTime DateAndOrTime)
   | Options
       attrs (FormInput (InputOptions items) (InputOptions items))
   | OptionsForeign
@@ -80,6 +88,12 @@ instance encodeJsonInput
       ~> "inputContents" := input
       ~> "foreignData" := jsonNull
       ~> jsonEmptyObject
+    DateTimeInput attrs input ->
+      "formInput" := "DateTimeInput"
+      ~> "inputAttrs" := attrs
+      ~> "inputContents" := input
+      ~> "foreignData" := jsonNull
+      ~> jsonEmptyObject
     Options attrs input ->
       "formInput" := "Options"
       ~> "inputAttrs" := attrs
@@ -111,6 +125,9 @@ instance decodeJsonInput
       "Number" -> do
          contents <- obj .? "inputContents"
          pure $ Number attrs contents
+      "DateTimeInput" -> do
+         contents <- obj .? "inputContents"
+         pure $ DateTimeInput attrs contents
       "Options" -> do
          contents <- obj .? "inputContents"
          pure $ Options attrs contents
@@ -272,3 +289,46 @@ instance decodeJsonAttrs
     label <- obj .? "label"
     helpText <- obj .?? "helpText" .?= Nothing
     pure $ Attrs { label, helpText }
+
+-----------
+-- Other Utilities
+
+newtype DateAndOrTime = DateAndOrTime
+  ( Variant
+    ( date :: Date
+    , time :: Time
+    , dateTime :: DateTime
+    )
+  )
+derive instance newtypeDateAndOrTime :: Newtype DateAndOrTime _
+
+instance decodeJsonDateAndOrTime :: DecodeJson DateAndOrTime where
+  decodeJson json = do
+    obj <- decodeJson json
+    type' <- obj .? "dateTimeType"
+    value <- obj .? "value"
+    case type' of
+      "date" -> do
+         let val = FDT.unformatDateTime "MM/DD/YYYY" value
+         map (\v -> DateAndOrTime $ inj (SProxy :: SProxy "date") (date v)) val
+      "time" -> do
+         let val = FDT.unformatDateTime "hh:mm:ss.sss a" value
+         map (\v -> DateAndOrTime $ inj (SProxy :: SProxy "time") (time v)) val
+      "dateTime" -> do
+         let val = FDT.unformatDateTime "MM/DD/YYYY hh:mm:ss.sss a" value
+         map (\v -> DateAndOrTime $ inj (SProxy :: SProxy "dateTime") v) val
+      _ -> Left $ "No decoder written for case " <> type'
+
+instance encodeJsonDateAndOrTime :: EncodeJson DateAndOrTime where
+  encodeJson (DateAndOrTime v) = match' v
+    where
+      encode type_ val =
+        "dateTimeType" := type_
+        ~> "value" := val
+        ~> jsonEmptyObject
+
+      match' = match
+        { date: encode "date" <<< FDT.formatDateTime "MM/DD/YYYY" <<< \x -> DateTime x defaultTime
+        , time: encode "time" <<< FDT.formatDateTime "hh:mm:ss a" <<< DateTime defaultDate
+        , dateTime: encode "dateTime" <<< FDT.formatDateTime "MM/DD/YYYY hh:mm:ss a"
+        }

@@ -11,9 +11,6 @@ import App.Data.Relate.Type as R
 import App.Data.Validate.Handler as VH
 import App.Data.Validate.Type as V
 import Effect.Aff (Aff)
-import Effect.Aff.AVar (AVAR)
-import Effect.Console (CONSOLE)
-import DOM (DOM)
 import Data.Either (Either(..))
 import Data.Either.Nested (Either3)
 import Data.Foldable (oneOf)
@@ -25,10 +22,8 @@ import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Form
 import Lynx.Data.Graph (FormId(..))
-import Network.HTTP.Affjax (AJAX)
 import Ocelot.Block.Layout as Layout
-import Routing.Match (Match)
-import Routing.Match.Class (end, int, lit, root)
+import Routing.Match (Match, end, int, lit, root)
 
 ----------
 -- Routes
@@ -68,19 +63,10 @@ type ChildQuery = Coproduct3
 
 type ChildSlot = Either3 Unit Unit Unit
 
-
-type Effects eff =
-  ( dom :: DOM
-  , ajax :: AJAX
-  , console :: CONSOLE
-  , avar :: AVAR
-  | eff
-  )
-
-component :: ∀ e. H.Component HH.HTML Query Input Void (Aff (Effects e))
+component :: H.Component HH.HTML Query Input Void Aff
 component =
   H.parentComponent
-  { initialState: id
+  { initialState: identity
   , render
   , eval
   , receiver: const Nothing
@@ -88,7 +74,7 @@ component =
   where
     render
       :: State
-      -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects e))
+      -> H.ParentHTML Query ChildQuery ChildSlot Aff
     render = case _ of
       Index ->
         HH.slot' CP.cp3 unit Home.component unit (const Nothing)
@@ -114,6 +100,6 @@ component =
       Builder formId ->
         HH.slot' CP.cp2 unit Builder.component formId (const Nothing)
 
-    eval :: Query ~> H.ParentDSL State Query ChildQuery ChildSlot Void (Aff (Effects e))
+    eval :: Query ~> H.ParentDSL State Query ChildQuery ChildSlot Void Aff
     eval = case _ of
       Navigate r a -> a <$ H.put r
