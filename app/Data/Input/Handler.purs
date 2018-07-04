@@ -3,17 +3,23 @@ module App.Data.Input.Handler where
 import Prelude
 
 import App.Data.Input.Type (AppInput, Attrs(..), ForeignData(..), FormInput(..), Input(..), InputOptions(..), MyItem(..), OptionItems(..))
-import Effect.Aff.Class (class MonadAff)
 import Data.Array (head)
 import Data.Bifunctor (lmap)
+import Data.DateTime (date, month, year)
 import Data.Either (either)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
+import Data.Tuple (Tuple(..))
+import Data.Variant (match)
+import Effect.Aff.Class (class MonadAff)
+import Halogen (liftAff) as H
+import Halogen.Component.ChildPath (cp1, cp2, cp3) as CP
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Lynx.Components.Form (datePickerCP, timePickerCP, typeaheadCP)
 import Lynx.Components.Form as Form
 import Lynx.Data.ForeignAPI (fetch)
 import Lynx.Data.Graph (InputRef)
@@ -21,6 +27,8 @@ import Ocelot.Block.Checkbox (checkbox_) as Checkbox
 import Ocelot.Block.FormField as FormField
 import Ocelot.Block.Input as Input
 import Ocelot.Block.Radio as Radio
+import Ocelot.Components.DatePicker as DatePicker
+import Ocelot.Components.TimePicker as TimePicker
 import Ocelot.Components.Typeahead as TA
 import Ocelot.Components.Typeahead.Input as TAInput
 
@@ -32,11 +40,11 @@ optionItemToStr = case _ of
 
 -- Remember that this is the render function being passed in, so
 -- we have to set the blur events we want to trigger.
-handleInput :: ∀ v r eff m
- . MonadAff (Form.Effects eff) m
+handleInput :: ∀ v r m
+ . MonadAff m
 => Form.State v AppInput r
 -> InputRef
--> Form.ComponentHTML v AppInput r (Form.Effects eff) m
+-> Form.ComponentHTML v AppInput r m
 handleInput st ref = fromMaybe (HH.div_ [])
   $ renderInput <$> Map.lookup ref st.form
   where
@@ -88,6 +96,47 @@ handleInput st ref = fromMaybe (HH.div_ [])
           ]
         ]
 
+      DateTimeInput (Attrs { helpText, label }) (FormInput { input, result }) ->
+        FormField.field_
+        { helpText
+        , label
+        , error: either head (const Nothing) result
+        , inputId: refStr
+        }
+        ( flip match (unwrap input)
+          { date: \d -> []
+              --  [ HH.slot'
+              --      datePickerCP
+              --      refStr
+              --      DatePicker.component
+              --      { targetDate: Just $ Tuple (year d) (month d), selection: Nothing }
+              --      ( HE.input $ Form.HandleDatePicker ref )
+              --  ]
+          , time: \t -> []
+              --  [ HH.slot'
+              --      timePickerCP
+              --      refStr
+              --      TimePicker.component
+              --      { selection: Nothing }
+              --      ( HE.input $ Form.HandleTimePicker ref )
+              --  ]
+          , dateTime: \dt -> []
+              --  [ HH.slot'
+              --      datePickerCP
+              --      refStr
+              --      DatePicker.component
+              --      { targetDate: Just $ Tuple (year $ date dt) (month $ date dt), selection: Nothing }
+              --      ( HE.input $ Form.HandleDatePicker ref )
+              --  , HH.slot'
+              --      timePickerCP
+              --      refStr
+              --      TimePicker.component
+              --      { selection: Nothing }
+              --      ( HE.input $ Form.HandleTimePicker ref )
+              --  ]
+          }
+        )
+
       Options
         attrs@(Attrs { helpText, label })
         (FormInput { input, result })
@@ -126,16 +175,20 @@ handleInput st ref = fromMaybe (HH.div_ [])
             , inputId: refStr
             , error: either head (const Nothing) result
             }
-            [ HH.slot refStr TA.component
-              ( TAInput.defSingle
-                [ HP.placeholder "Type to search..."
-                , HP.id_ refStr
-                ]
-                arr
-                TAInput.renderItemString
-              )
-              ( HE.input $ Form.HandleTypeahead ref )
-            ]
+            []
+            --  [ HH.slot'
+            --      typeaheadCP
+            --      refStr
+            --      TA.component
+            --      ( TAInput.defSingle
+            --        [ HP.placeholder "Type to search..."
+            --        , HP.id_ refStr
+            --        ]
+            --        arr
+            --        TAInput.renderItemString
+            --      )
+            --      ( HE.input $ Form.HandleTypeahead ref )
+            --  ]
 
       -- Data is set remotely. For radios and checkboxes, fetch at render time.
       -- For dropdowns, accept a function to search.
@@ -177,16 +230,20 @@ handleInput st ref = fromMaybe (HH.div_ [])
               , inputId: refStr
               , error: either head (const Nothing) result
               }
-              [ HH.slot refStr TA.component
-                ( TAInput.defAsyncMulti
-                  [ HP.placeholder "Type to search..."
-                  , HP.id_ refStr
-                  ]
-                  (fetch akeys ikeys url)
-                  TAInput.renderItemString
-                )
-                ( HE.input $ Form.HandleTypeahead ref )
-              ]
+              []
+              --  [ HH.slot'
+              --      typeaheadCP
+              --      refStr
+              --      TA.component
+              --      ( TAInput.defAsyncMulti
+              --        [ HP.placeholder "Type to search..."
+              --        , HP.id_ refStr
+              --        ]
+              --        (H.liftAff <<< fetch akeys ikeys url)
+              --        TAInput.renderItemString
+              --      )
+              --      ( HE.input $ Form.HandleTypeahead ref )
+              --  ]
 
 setTextValue :: String -> AppInput -> AppInput
 setTextValue str inputType = case inputType of

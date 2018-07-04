@@ -7,6 +7,8 @@ import Data.Argonaut (class DecodeJson, decodeJson)
 import Data.Array (fromFoldable) as Array
 import Data.Either (Either(..))
 import Data.Foldable (foldr)
+import Data.Functor.Coproduct (Coproduct)
+import Data.Functor.Coproduct.Nested (Coproduct3)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
@@ -16,16 +18,22 @@ import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Console as Console
 import Halogen as H
+import Halogen.Component.ChildPath (ChildPath)
+import Halogen.Component.ChildPath as CP
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Lynx.Data.Graph (FormConfig(..), InputConfig(..), InputRef, FormId(..))
 import Network.HTTP.Affjax (get)
 import Network.HTTP.Affjax.Response (json) as Response
+import Ocelot.Components.DatePicker as DatePicker
+import Ocelot.Components.TimePicker as TimePicker
 import Ocelot.Components.Typeahead as TA
 
 -- `i` is the Input type
 data Query v i r a
   = HandleTypeahead InputRef (TA.Message (Query v i r) String) a
+  | HandleDatePicker InputRef DatePicker.Message a
+  | HandleTimePicker InputRef TimePicker.Message a
   | UpdateValue InputRef (i -> i) a
   | Blur InputRef (i -> i) a -- reset function
   | GetForm FormId a
@@ -84,8 +92,25 @@ type ComponentDSL v i r m
   = H.ParentDSL (State v i r) (Query v i r) (ChildQuery v i r m) ChildSlot Message m
 
 type ChildSlot = String
-type ChildQuery v i r m
-  = TA.Query (Query v i r) String String m
+type ChildQuery v i r m = Coproduct3
+  ( TA.Query (Query v i r) String String m )
+  DatePicker.Query
+  TimePicker.Query
+
+typeaheadCP
+  :: forall f1 g p1 q
+   . ChildPath f1 (Coproduct f1 g) p1 (Either p1 q)
+typeaheadCP = CP.cp1
+
+datePickerCP
+  :: forall f1 f2 g p1 p2 q
+   . ChildPath f2 (Coproduct f1 (Coproduct f2 g)) p2 (Either p1 (Either p2 q))
+datePickerCP = CP.cp2
+
+timePickerCP
+  :: forall f1 f2 f3 g p1 p2 p3 q
+   . ChildPath f3 (Coproduct f1 (Coproduct f2 (Coproduct f3 g))) p3 (Either p1 (Either p2 (Either p3 q)))
+timePickerCP = CP.cp3
 
 component :: ∀ v i r m
    . DecodeJson v
@@ -171,6 +196,16 @@ component { handleInput, handleValidate, handleRelate, initialize } =
                TA.One x -> maybe [] pure x
           pure a
         TA.VisibilityChanged v -> pure a
+
+      HandleDatePicker ref m a -> case m of
+        DatePicker.SelectionChanged _ -> pure a
+        DatePicker.VisibilityChanged _ -> pure a
+        DatePicker.Searched _ -> pure a
+
+      HandleTimePicker ref m a -> case m of
+        TimePicker.SelectionChanged _ -> pure a
+        TimePicker.VisibilityChanged v -> pure a
+        TimePicker.Searched _ -> pure a
 
       UpdateValue ref func a -> a <$ do
         H.modify_ \st -> st { form = inputAp func ref st.form }

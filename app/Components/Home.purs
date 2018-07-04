@@ -3,22 +3,21 @@ module App.Components.Home where
 import Prelude
 
 import App.Components.Builder (FormConfig')
-import Effect.Aff (Aff)
-import Effect.Console (CONSOLE)
-import DOM (DOM)
-import DOM.HTML (window)
-import DOM.HTML.Location (setHash)
-import DOM.HTML.Window (location)
 import Data.Argonaut (decodeJson)
 import Data.Array (length)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
+import Effect.Aff (Aff)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Lynx.Data.Graph (FormConfig(..), FormId(..))
-import Network.HTTP.Affjax (AJAX, get)
+import Network.HTTP.Affjax (get)
+import Network.HTTP.Affjax.Response (json) as Response
+import Web.HTML (window)
+import Web.HTML.Location (setHash)
+import Web.HTML.Window (location)
 
 ----------
 -- Router
@@ -34,9 +33,7 @@ data Location
 type Input = Unit
 type State = { forms :: Array FormConfig' }
 
-type Effects eff = ( dom :: DOM, ajax :: AJAX, console :: CONSOLE | eff )
-
-component :: ∀ e. H.Component HH.HTML Query Input Void (Aff (Effects e))
+component :: H.Component HH.HTML Query Input Void Aff
 component =
   H.lifecycleComponent
   { initialState: const { forms: [] }
@@ -73,7 +70,7 @@ component =
               [ HH.text $ "/#/forms/" <> (show <<< unwrap) id ]
           ]
 
-    eval :: Query ~> H.ComponentDSL State Query Void (Aff (Effects e))
+    eval :: Query ~> H.ComponentDSL State Query Void Aff
     eval = case _ of
       Initialize a -> do
         forms <- H.liftAff getForms
@@ -82,12 +79,12 @@ component =
           Right f -> H.modify_ _ { forms = f } *> pure a
 
       Navigate loc a -> do
-        let run str formId = H.liftEff $ setHash ("#/" <> str <> "/" <> (show <<< unwrap) formId) =<< location =<< window
+        let run str formId = H.liftEffect $ setHash ("#/" <> str <> "/" <> (show <<< unwrap) formId) =<< location =<< window
         case loc of
           Form fid -> run "forms" fid
           Builder fid -> run "builder" fid
         pure a
 
-getForms :: ∀ eff. Aff (Effects eff) (Either String (Array FormConfig'))
+getForms :: Aff (Either String (Array FormConfig'))
 getForms =
-  decodeJson <<< _.response <$> get ("http://localhost:3000/forms/")
+  decodeJson <<< _.response <$> get Response.json ("http://localhost:3000/forms/")

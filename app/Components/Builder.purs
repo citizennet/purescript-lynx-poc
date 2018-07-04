@@ -8,15 +8,7 @@ import App.Data.Relate.Handler (handleRelate) as R
 import App.Data.Relate.Type (Relate) as R
 import App.Data.Validate.Handler (handleValidate) as V
 import App.Data.Validate.Type (Validate(..)) as V
-import Effect.Aff.Class (class MonadAff)
 import Control.Monad.State.Class (class MonadState)
-import Effect.Aff (Aff)
-import Effect.Aff.AVar (AVAR)
-import Effect.Console (CONSOLE, error)
-import DOM (DOM)
-import DOM.HTML (window)
-import DOM.HTML.Location (setHash)
-import DOM.HTML.Window (location)
 import Data.Argonaut (decodeJson, encodeJson)
 import Data.Array (deleteAt, elem, filter, snoc, updateAt, (:))
 import Data.Either (Either(..))
@@ -28,22 +20,31 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap, wrap)
 import Data.Traversable (traverse_)
 import Data.Tuple (Tuple(..), uncurry)
+import Effect.Aff (Aff)
+import Effect.Aff.Class (class MonadAff)
+import Effect.Console (error)
+import Effect.Console as Console
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Lynx.Components.Form as Form
 import Lynx.Data.ForeignAPI (ArrayKeys(..), ItemKeys(..), renderArrayKeys, renderItemKeys, readArrayKeys, readItemKeys, fetch)
-import Network.RemoteData (RemoteData(..), withDefault)
-import Effect.Console as Console
 import Lynx.Data.Graph (FormConfig(..), FormId, InputConfig(..), InputRef(..))
-import Network.HTTP.Affjax (AJAX, get, post)
+import Network.HTTP.Affjax (get, post)
+import Network.HTTP.Affjax.Request (json) as Request
+import Network.HTTP.Affjax.Response (json) as Response
+import Network.RemoteData (RemoteData(..), withDefault)
 import Ocelot.Block.Button as Button
 import Ocelot.Block.Card as Card
 import Ocelot.Block.FormField as FormField
 import Ocelot.Block.Input as Input
+import Ocelot.Block.Radio (radio_) as Radio
 import Ocelot.Block.Toggle as Toggle
 import Ocelot.HTML.Properties (css)
+import Web.HTML (window)
+import Web.HTML.Location (setHash)
+import Web.HTML.Window (location)
 
 data Query a
   = Create I.AppInput a
@@ -78,20 +79,10 @@ type FormConfig' = FormConfig V.Validate I.AppInput R.Relate
 type Input = FormId
 type Message = Void
 
-type Effects eff =
-  ( ajax :: AJAX
-  , console :: CONSOLE
-  , dom :: DOM
-  , avar :: AVAR
-  | eff
-  )
-
 type ChildQuery = Form.Query V.Validate I.AppInput R.Relate
 type ChildSlot = Unit
 
-component
-  :: ∀ eff
-   . H.Component HH.HTML Query Input Message (Aff (Effects eff))
+component :: H.Component HH.HTML Query Input Message Aff
 component =
   H.lifecycleParentComponent
     { initialState
@@ -109,7 +100,7 @@ component =
 
     eval
       :: Query
-      ~> H.ParentDSL State Query ChildQuery ChildSlot Message (Aff (Effects eff))
+      ~> H.ParentDSL State Query ChildQuery ChildSlot Message Aff
     eval = case _ of
       -- Load the existing form config, if it exists;
       -- otherwise, keep the blank config.
@@ -187,15 +178,15 @@ component =
           config <- H.liftAff (saveFormConfig state.config)
           case config of
             Left err -> do
-              H.liftAff (error err)
+              H.liftEffect (error err)
             Right (FormConfig { id }) -> do
-              H.liftEff
+              H.liftEffect
                 $ setHash
                     ("#/forms/" <> (show <<< unwrap) id)
                     =<< location
                     =<< window
 
-    render :: State -> H.ParentHTML Query ChildQuery ChildSlot (Aff (Effects eff))
+    render :: State -> H.ParentHTML Query ChildQuery ChildSlot Aff
     render state =
       let stringInput = I.FormInput { input: "", result: Left [], validate: false }
           numberInput = I.FormInput { input: "", result: Left [], validate: false }
@@ -331,6 +322,8 @@ component =
                 -> renderTextArea k l x
               I.Number (I.Attrs l) _
                 -> renderNumber k l x
+              I.DateTimeInput (I.Attrs l) _
+                -> renderDateTimeInput k l x
               I.Options (I.Attrs l) (I.FormInput { input })
                 -> renderOptions k l x input
               I.OptionsForeign
@@ -450,6 +443,68 @@ component =
                   [ Input.input
                     [ HP.value $ fromMaybe "" l.helpText
                     , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpTextField <<< Just
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Required"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Toggle.toggle
+                    [ HP.checked (elem V.Required validations)
+                    , HE.onClick $ HE.input_ $ ChangeValidations k (Add V.Required)
+                    ]
+                  ]
+                ]
+
+            renderDateTimeInput k l c@{ inputType, validations, relations } =
+              HH.div
+                [ css "m-8" ]
+                [ HH.div_
+                  [ renderIcon { color: "bg-black", icon: "fa fa-align-justify" }
+                  , HH.span_ [ HH.text "Date & Time" ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Label"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value l.label
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< LabelField
+                    ]
+                  ]
+                , FormField.field_
+                  { helpText: Nothing
+                  , label: "Helptext"
+                  , error: Nothing
+                  , inputId: ""
+                  }
+                  [ Input.input
+                    [ HP.value $ fromMaybe "" l.helpText
+                    , HE.onValueInput $ HE.input $ UpdateAttrs k <<< HelpTextField <<< Just
+                    ]
+                  ]
+                , FormField.fieldset_
+                  { label: "Component Type"
+                  , inputId: "radio-vertical"
+                  , helpText: Just "Choose a date, time, or date time component."
+                  , error: Nothing
+                  }
+                  [ HH.div_
+                    [ Radio.radio_
+                      [ HP.name "datetime"
+                      , HP.checked true
+                      ]
+                      [ HH.text "Date" ]
+                    , Radio.radio_
+                      [ HP.name "datetime" ]
+                      [ HH.text "Time" ]
+                    , Radio.radio_
+                      [ HP.name "datetime" ]
+                      [ HH.text "Date & Time" ]
                     ]
                   ]
                 , FormField.field_
@@ -695,6 +750,8 @@ setInputLabel str (InputConfig i) = InputConfig $ case i.inputType of
     i { inputType = I.TextArea (I.Attrs $ x { label = str }) formInput }
   I.Number (I.Attrs x) formInput ->
     i { inputType = I.Number (I.Attrs $ x { label = str }) formInput }
+  I.DateTimeInput (I.Attrs x) formInput ->
+    i { inputType = I.DateTimeInput (I.Attrs $ x { label = str }) formInput }
   I.Options (I.Attrs x) formInput ->
     i { inputType = I.Options (I.Attrs $ x { label = str }) formInput }
   I.OptionsForeign (I.Attrs x) formInput fd ->
@@ -708,6 +765,8 @@ setInputHelpText str (InputConfig i) = InputConfig $ case i.inputType of
     i { inputType = I.TextArea (I.Attrs $ x { helpText = str }) formInput }
   I.Number (I.Attrs x) formInput ->
     i { inputType = I.Number (I.Attrs $ x { helpText = str }) formInput }
+  I.DateTimeInput (I.Attrs x) formInput ->
+    i { inputType = I.DateTimeInput (I.Attrs $ x { helpText = str }) formInput }
   I.Options (I.Attrs x) formInput ->
     i { inputType = I.Options (I.Attrs $ x { helpText = str }) formInput }
   I.OptionsForeign (I.Attrs x) formInput fd ->
@@ -803,27 +862,28 @@ foldrWithKey f z =
   foldr (uncurry f) z
   <<< (Map.toUnfoldable :: Map k a -> Array (Tuple k a))
 
-getFormConfig :: ∀ eff. FormId -> Aff (Effects eff) (Either String FormConfig')
+getFormConfig :: FormId -> Aff (Either String FormConfig')
 getFormConfig formId =
   decodeJson
   <<< _.response
-  <$> get ("http://localhost:3000/forms/" <> (show <<< unwrap) formId)
+  <$> get Response.json ("http://localhost:3000/forms/" <> (show <<< unwrap) formId)
 
-saveFormConfig :: ∀ eff. FormConfig' -> Aff (Effects eff) (Either String FormConfig')
+saveFormConfig :: FormConfig' -> Aff (Either String FormConfig')
 saveFormConfig config =
-  decodeJson <<< _.response <$> post uri (encodeJson config)
+  decodeJson <<< _.response <$> post Response.json uri (Request.json $ encodeJson config)
   where
     uri = "http://localhost:3000/forms"
 
 -- A helper function that can be used to initialize the form
 -- builder.
-initialize :: ∀ eff m
+initialize
+  :: ∀ m
    . MonadState (Form.State V.Validate I.AppInput R.Relate) m
-  => MonadAff (Form.Effects eff) m
+  => MonadAff m
   => m Unit
 initialize = do
   (refs :: Array (Tuple InputRef I.AppInput))
-    <- H.gets (Map.toAscUnfoldable <<< _.form)
+    <- H.gets (Map.toUnfoldable <<< _.form)
   flip traverse_ refs $ \(Tuple ref input) -> do
     case input of
       I.OptionsForeign attrs formInput (I.ForeignData url akeys ikeys) -> do
@@ -832,7 +892,7 @@ initialize = do
           case data_ of
             Success xs -> pure xs
             Failure err -> do
-               H.liftAff $ Console.log err
+               H.liftEffect $ Console.log err
                pure []
             otherwise -> pure $ withDefault [] data_
 

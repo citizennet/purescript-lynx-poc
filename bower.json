@@ -19,7 +19,8 @@
     "purescript-control": "^4.0.0",
     "purescript-ocelot": "git@github.com:citizennet/purescript-ocelot.git#0.4.1",
     "purescript-read": "^1.0.1",
-    "purescript-ordered-collections": "^1.0.0"
+    "purescript-ordered-collections": "^1.0.0",
+    "purescript-numbers": "^6.0.0"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0",
