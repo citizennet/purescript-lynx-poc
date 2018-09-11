@@ -1,3 +1,33 @@
 {
-  "forms": [ ]
+  "forms": [
+    {
+      "inputs": [
+        [
+          0,
+          {
+            "relations": [],
+            "validations": [],
+            "inputType": {
+              "foreignData": null,
+              "inputContents": {
+                "validate": false,
+                "result": {
+                  "tag": "Left",
+                  "value": []
+                },
+                "input": ""
+              },
+              "inputAttrs": {
+                "helpText": "With some help text",
+                "label": "This is a text field"
+              },
+              "formInput": "Text"
+            }
+          }
+        ]
+      ],
+      "supply": 1,
+      "id": 1
+    }
+  ]
 }
