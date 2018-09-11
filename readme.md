@@ -7,7 +7,8 @@ An experimental library for dynamic forms. Any release version will exist under 
 Install dependencies, build, watch file changes, and serve the database and HTML:
 
 ```sh
-yarn && open http://localhost:1234 && open http://localhost:3000 && yarn start
+# Install dependencies, start the application, and open the app locally
+npm install && npm run start && open http://localhost:1234
 ```
 
 ## Use
@@ -17,8 +18,8 @@ After building the application and running the database, navigate to `.html` to 
 To install dependencies and run the app:
 
 ```sh
-yarn        # install all dependencies
-yarn start  # build/watch application & run db server / html server
+npm i          # install all dependencies
+npm run start  # build/watch application & run db server / html server
 ```
 
 To view the application and database:
@@ -32,12 +33,4 @@ The project relies on `json-server` to mock dynamic forms being loaded and saved
 
 # Major Todos
 
-- Add a layout DSL that specifies the order of fields and allows you to add extra data (label, etc.)
-- Parse a form to a correct type (`User`, for example)
-- Support fields as components (not just `Text`)
-- Support more complex validation with variants
-
-# Open Questions
-
-- How to support arbitrary HTML in between fields?
-  - Layout DSL that allows you to insert HTML blocks of the right type?
+- Produce a dynamic layout spec
